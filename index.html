@@ -1,0 +1,3513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ListenDiag - Tsunehito 英語ストーリー（1文・段落・ページ範囲指定対応）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .chunk-highlight {
+      transition: all 0.2s ease;
+    }
+    .chunk-highlight:hover {
+      transform: translateY(-1px);
+    }
+    .slash-chunk {
+      display: inline-block;
+      padding: 0.35rem 0.75rem;
+      margin: 0.25rem;
+      border-radius: 0.75rem;
+      background: #f1f5f9;
+      border: 2px solid #cbd5e1;
+      transition: all 0.2s ease;
+    }
+    .slash-chunk.active-reading {
+      background: #e0e7ff;
+      border-color: #6366f1;
+      color: #1e1b4b;
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .recitation-masked .en-text {
+      filter: blur(7px);
+      user-select: none;
+      transition: filter 0.2s ease;
+    }
+    .recitation-masked:hover .en-text {
+      filter: blur(0px);
+    }
+    /* チャンク・リテンション＆リフレイン用カード */
+    .refrain-chunk-card {
+      transition: all 0.25s ease;
+      border: 2px solid #1e293b;
+      background: #0f172a;
+    }
+    .refrain-chunk-card.model-speaking {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.18);
+      box-shadow: 0 0 18px rgba(99, 102, 241, 0.35);
+    }
+    .refrain-chunk-card.echo-speaking {
+      border-color: #fbbf24;
+      background: rgba(245, 158, 11, 0.22);
+      transform: translateY(-2px);
+      box-shadow: 0 0 22px rgba(251, 191, 36, 0.45);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-sm">
+          T
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="font-bold text-lg text-slate-900 leading-none">ListenDiag × Tsunehito</h1>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">小学生英語・範囲指定リスニング＆音読</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">『Tsunehito and the Mysterious Adventure Beyond Time (Vol. 1〜4)』完全収録</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <span class="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center space-x-1.5">
+          <span>🔒 教材データ固定モード（Vol.1〜Vol.4 全文収録）</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       STORY RANGE SELECTOR BAR (1文ごと / 段落ごと / ページごと)
+       ========================================================= -->
+  <section class="bg-indigo-950 text-white border-b border-indigo-900 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 space-y-3">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Scope Mode Tabs -->
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+            <span>📖 学習する範囲の単位：</span>
+          </span>
+          <div class="inline-flex bg-indigo-900/90 p-1 rounded-xl border border-indigo-800">
+            <button data-unit="sentence" class="scope-unit-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-sm transition">
+              ① 1文ごと (小学生に最適)
+            </button>
+            <button data-unit="paragraph" class="scope-unit-btn px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-200 hover:text-white transition">
+              ② 段落ごと
+            </button>
+            <button data-unit="page" class="scope-unit-btn px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-200 hover:text-white transition">
+              ③ ページごと
+            </button>
+          </div>
+        </div>
+
+        <!-- Prev / Next Quick Stepper -->
+        <div class="flex items-center space-x-2">
+          <button id="prevUnitBtn" class="px-3 py-1.5 rounded-lg bg-indigo-900 hover:bg-indigo-800 border border-indigo-700 text-xs font-bold flex items-center space-x-1 transition">
+            <span>◀ 前へ</span>
+          </button>
+          <span id="currentScopeCounterBadge" class="text-xs font-bold px-3 py-1 rounded-lg bg-indigo-900/60 border border-indigo-800 text-amber-300">
+            1 / 1
+          </span>
+          <button id="nextUnitBtn" class="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold flex items-center space-x-1 shadow-sm transition">
+            <span>次へ ▶</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Dropdowns: Volume/Chapter -> Page -> Start/End Item -->
+      <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1 border-t border-indigo-900/80 text-xs">
+        <div class="sm:col-span-4 flex flex-col">
+          <label class="text-[11px] text-indigo-300 font-medium mb-1">① 巻・チャプターで絞り込み</label>
+          <select id="chapterFilterSelect" class="px-2.5 py-1.5 rounded-lg bg-indigo-900/90 border border-indigo-700 text-white font-medium focus:outline-none focus:ring-2 focus:ring-amber-400 truncate">
+            <option value="all">すべての巻・チャプター (Vol.1〜Vol.4)</option>
+          </select>
+        </div>
+
+        <div id="pageFilterWrapper" class="sm:col-span-3 flex flex-col">
+          <label class="text-[11px] text-indigo-300 font-medium mb-1">② ページを選択</label>
+          <select id="pageFilterSelect" class="px-2.5 py-1.5 rounded-lg bg-indigo-900/90 border border-indigo-700 text-white font-medium focus:outline-none focus:ring-2 focus:ring-amber-400 truncate">
+          </select>
+        </div>
+
+        <div class="sm:col-span-5 flex flex-col">
+          <label id="rangeSelectLabel" class="text-[11px] text-amber-300 font-bold mb-1">③ リスニング・音読する範囲（開始 〜 終了）を指定</label>
+          <div class="flex items-center space-x-1.5">
+            <select id="startItemSelect" class="flex-1 px-2.5 py-1.5 rounded-lg bg-indigo-900 border border-amber-400/70 text-white font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 truncate">
+            </select>
+            <span class="text-indigo-300 font-bold shrink-0">〜</span>
+            <select id="endItemSelect" class="flex-1 px-2.5 py-1.5 rounded-lg bg-indigo-900 border border-indigo-700 text-indigo-100 font-medium focus:outline-none focus:ring-2 focus:ring-amber-400 truncate">
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- Left Column: Audio Player & 5-Step Adaptive Flow (8 cols) -->
+    <div class="lg:col-span-8 space-y-5">
+
+      <!-- 1. Audio Player & Real-time Telemetry Bar -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="questionCategoryBadge" class="text-xs font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                Volume 1
+              </span>
+              <span id="adaptiveRouteBadge" class="text-xs font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                推奨ステップ：Step 4 (頭出し・1秒後リフレイン)
+              </span>
+            </div>
+            <h2 id="questionTitle" class="text-lg font-bold text-slate-900 mt-1.5">読み込み中...</h2>
+            <p id="questionSituation" class="text-sm text-slate-600 mt-0.5"></p>
+          </div>
+
+          <div class="flex flex-col items-start sm:items-end shrink-0">
+            <label class="text-xs font-medium text-slate-500 mb-1">話者アクセント (Web Speech API)</label>
+            <select id="voiceSelect" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 max-w-[210px] truncate">
+              <option value="">標準の英語音声 (自動)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selected English Text Preview Box for Elementary Students -->
+        <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+          <div class="flex items-center justify-between text-[11px] text-slate-500 font-bold">
+            <span id="selectedRangeModeLabel">🎯 現在選択中のリスニング範囲（この範囲がすべてのステップに反映されます）</span>
+            <span id="wordCountBadge" class="px-2 py-0.5 rounded bg-slate-200 text-slate-700">0 words</span>
+          </div>
+          <p id="currentTargetTextPreview" class="text-base sm:text-lg font-bold text-slate-900 leading-relaxed"></p>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button id="playTargetHeaderBtn" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm flex items-center space-x-2 shadow-sm transition">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+              </svg>
+              <span>🎯 選択中の範囲を再生</span>
+            </button>
+
+            <button id="playMainBtn" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs sm:text-sm flex items-center space-x-1.5 transition">
+              <span>📄 このページ全体を再生</span>
+            </button>
+
+            <button id="stopAudioBtn" class="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 transition" title="停止">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+
+            <span id="audioStatusBadge" class="hidden text-xs font-medium px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-indigo-600 animate-ping"></span>
+              <span id="audioStatusText">再生中...</span>
+            </span>
+          </div>
+
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+            <button data-speed="0.8" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">0.8x (ゆっくり)</button>
+            <button data-speed="1.0" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-600 shadow-sm transition">1.0x (標準)</button>
+            <button id="speed12Btn" data-speed="1.2" class="speed-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 flex items-center space-x-1 transition">
+              <span id="speed12LockIcon">🔒</span>
+              <span>1.2x (速聴)</span>
+            </button>
+          </div>
+        </div>
+        <p id="speedWarningText" class="hidden text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mt-2.5">
+          💡 <strong>アドバイス：</strong>1.2倍速は、通常速度(1.0x)でしっかり聞き取れるようになってから挑戦すると効果的です。
+        </p>
+      </section>
+
+      <!-- Non-linear 5-Step Switcher Bar -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 shadow-sm">
+        <div class="flex items-center justify-between px-2 py-1 text-[11px] text-slate-500">
+          <span>🔄 <strong>発達段階に沿ったステップ移動：</strong>Step 3（重唱・純粋音読・暗唱）と Step 4（1秒後リフレイン・頭出しリテンション）を往復できます</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-1">
+          <button data-step="5" class="step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start border border-transparent">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-[10px] opacity-75">STEP 5 (入口/実戦)</span>
+              <span id="recBadge_5" class="hidden text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 font-bold">★推奨</span>
+            </div>
+            <span class="mt-0.5 truncate w-full text-left">① 内容理解クイズ</span>
+          </button>
+
+          <button data-step="1" class="step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start border border-transparent">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-[10px] opacity-75">STEP 1 (音素/強勢)</span>
+              <span id="recBadge_1" class="hidden text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 font-bold">★推奨</span>
+            </div>
+            <span class="mt-0.5 truncate w-full text-left">② チャンク・発音</span>
+          </button>
+
+          <button data-step="2" class="step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start border border-transparent">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-[10px] opacity-75">STEP 2 (音声知覚)</span>
+              <span id="recBadge_2" class="hidden text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 font-bold">★推奨</span>
+            </div>
+            <span class="mt-0.5 truncate w-full text-left">③ 穴埋め・聞き取り</span>
+          </button>
+
+          <button data-step="3" class="step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start border border-transparent">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-[10px] opacity-75">STEP 3 (純粋音読/暗唱)</span>
+              <span id="recBadge_3" class="hidden text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 font-bold">★推奨</span>
+            </div>
+            <span class="mt-0.5 truncate w-full text-left">④ 重唱・純粋音読・暗唱</span>
+          </button>
+
+          <button data-step="4" class="step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start border border-transparent">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-[10px] opacity-75">STEP 4 (リテンション内言)</span>
+              <span id="recBadge_4" class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 font-bold">★推奨</span>
+            </div>
+            <span class="mt-0.5 truncate w-full text-left">⑤ 頭出し・エコー内言</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- =========================================================
+           PANEL STEP 5: 実戦ワークシート＆初期ルーティング診断
+           ========================================================= -->
+      <section id="panelStep5" class="step-panel hidden bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-xs font-bold text-indigo-600">STEP 5：ストーリー聞き取りクイズ（選択中の範囲）</span>
+            <h3 class="font-bold text-base text-slate-900 mt-0.5">文字を見ずに音を聞いて、どんな文だったか当ててみよう</h3>
+            <p class="text-xs text-slate-500 mt-0.5">まずは耳だけでどこまで聞き取れるか試し、次に進むべきステップを判定します。</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+          <span class="text-slate-600">💡 <strong>聞く前のヒント：</strong>登場人物（Tsunehito, Chrono, Luna, Shion）や行動を表す動詞に注目して聞いてみよう！</span>
+          <button id="useHintStep5Btn" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold transition shrink-0">
+            ヒントを見る (+1記録)
+          </button>
+        </div>
+        <div id="step5HintBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"></div>
+
+        <div id="worksheetContainer" class="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-4"></div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <div id="worksheetResultMsg" class="text-xs sm:text-sm font-medium"></div>
+          <button id="checkWorksheetBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-sm shrink-0">
+            採点して最適ステップを判定 →
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================================
+           PANEL STEP 1: 語彙・チャンク・強勢リズム確認
+           ========================================================= -->
+      <section id="panelStep1" class="step-panel hidden bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-5">
+        <div class="border-b border-slate-100 pb-3">
+          <span class="text-xs font-bold text-indigo-600">STEP 1：語彙・チャンク・発音運動の確認（選択中の範囲）</span>
+          <h3 class="font-bold text-base text-slate-900 mt-0.5">小さな意味の塊（チャンク）ごとに、正しいリズムと音の繋がりを確かめよう</h3>
+          <p class="text-xs text-slate-500 mt-0.5">🔊ボタンを押して、2〜4語の塊を「1つのなめらかな口の運動」としてマネしてみよう。</p>
+        </div>
+
+        <div id="vocabChunksList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+
+        <div class="flex flex-wrap items-center justify-end gap-2.5 pt-2">
+          <button id="step1ToStep2Btn" class="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs sm:text-sm font-bold transition">
+            Step 2 (穴埋めディクテーション) へ →
+          </button>
+          <button id="step1ToStep3Btn" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-bold transition shadow-sm">
+            Step 3 (重唱・純粋音読・暗唱) へ →
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================================
+           PANEL STEP 2: ディクテーション＆4択仮説検証診断
+           ========================================================= -->
+      <section id="panelStep2" class="step-panel hidden bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-xs font-bold text-indigo-600">STEP 2：ディクテーション（聞き取り穴埋め）＆ 原因候補の診断</span>
+            <h3 class="font-bold text-base text-slate-900 mt-0.5">聞こえた単語を入れてみよう！聞き取れなかった原因もわかるよ</h3>
+          </div>
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl self-start">
+            <button id="modeClozeBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-indigo-600 shadow-sm transition">穴埋め (標準)</button>
+            <button id="modeFullBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition">全文入力</button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div class="flex items-center space-x-2">
+            <button id="playTargetBtn" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition">
+              <span>▶ 選択中の範囲を聞く (1.0x)</span>
+            </button>
+            <button id="hintSlowPlayBtn" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition">
+              🐢 0.8倍速でゆっくり聞く (+1記録)
+            </button>
+          </div>
+          <button id="fillSampleErrorBtn" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline">
+            💡 デモ用：よくある空耳誤答を自動入力して試す
+          </button>
+        </div>
+
+        <div id="clozeInputContainer" class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-base leading-loose font-medium"></div>
+
+        <div id="fullInputContainer" class="hidden">
+          <textarea id="fullDictationTextarea" rows="3" placeholder="聞こえた英文をそのまま入力してください..." class="w-full p-3.5 rounded-xl border border-slate-300 focus:border-indigo-600 focus:outline-none text-sm font-medium"></textarea>
+        </div>
+
+        <div class="flex justify-end">
+          <button id="gradeDictationBtn" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm transition">
+            採点して「原因候補」を診断する
+          </button>
+        </div>
+
+        <div id="diagnosisResultSection" class="hidden space-y-4 pt-4 border-t border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">単語単位の差分 (Diff) 結果</span>
+            <span id="dictationScoreBadge" class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200"></span>
+          </div>
+          <div id="diffTokensContainer" class="flex flex-wrap gap-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200"></div>
+          <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950">
+            <strong>🔓 選択範囲の情報：</strong> <span id="unlockedTranslation"></span>
+          </div>
+          <div id="chunkDiagnosisContainer" class="space-y-4"></div>
+        </div>
+      </section>
+
+      <!-- =========================================================
+           PANEL STEP 3: オーバーラッピング ➔ 純粋な音読（無音自走） ➔ Read & Look up / 暗唱
+           ========================================================= -->
+      <section id="panelStep3" class="step-panel hidden bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-5">
+        <div class="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span class="text-xs font-bold text-indigo-600">STEP 3：オーバーラッピング ➔ 純粋な音読（無音自走） ➔ 暗唱（運動神経の確立）</span>
+            <h3 class="font-bold text-base text-slate-900 mt-0.5">お手本と重ねて読んだあと、自分の口だけでスラスラ声に出してみよう</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              ①お手本と重ねる（重唱）➔ ②<strong>音声なしで自分の力だけでスラッシュ音読（純粋な音読）</strong>➔ ③英語を隠して<strong>暗唱</strong>の3段階で練習します。
+            </p>
+          </div>
+          <button id="toggleRecitationMaskBtn" class="px-3.5 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shrink-0 self-start transition">
+            🙈 暗唱モード：英語を隠す (OFF)
+          </button>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">スラッシュ区切りスクリプト（チャンクをクリックするとその塊だけ発音します）</span>
+            <span id="pureReadingTimerBadge" class="hidden text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+              ⏱️ 純粋音読ペースガイド稼働中...
+            </span>
+          </div>
+          <div id="slashScriptContainer" class="text-lg font-bold text-slate-800 leading-relaxed"></div>
+          <p id="slashTranslationText" class="text-xs text-slate-600 pt-2 border-t border-slate-200"></p>
+        </div>
+
+        <!-- 4段階の発声トレーニングボタン（①0.8x重唱 / ②1.0x重唱 / ③純粋な音読(無音) / ④暗唱） -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button id="overlap08Btn" class="p-3.5 rounded-xl border-2 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 text-left transition space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-700">① 0.8x 重唱 (補助輪)</span>
+              <span id="overlap08Count" class="text-xs font-bold px-2 py-0.5 rounded bg-white text-indigo-700">0/3回</span>
+            </div>
+            <div class="font-bold text-xs sm:text-sm text-slate-900">▶ ゆっくり声を重ねる</div>
+            <p class="text-[11px] text-slate-600">音の繋がりをマネして一緒に声に出します。</p>
+          </button>
+
+          <button id="overlap10Btn" class="p-3.5 rounded-xl border-2 border-indigo-300 bg-indigo-50/80 hover:bg-indigo-100 text-left transition space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-indigo-800">② 1.0x 重唱 (補助輪)</span>
+              <span id="overlap10Count" class="text-xs font-bold px-2 py-0.5 rounded bg-white text-indigo-800">0/3回</span>
+            </div>
+            <div class="font-bold text-xs sm:text-sm text-slate-900">▶ 標準速度で重ねる</div>
+            <p class="text-[11px] text-slate-600">自然なスピードに遅れず口を動かします。</p>
+          </button>
+
+          <button id="pureReadingBtn" class="p-3.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/80 text-left transition space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-800">③ 純粋な音読 (無音自走)</span>
+              <span id="pureReadCountBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-white text-emerald-800">0/3回</span>
+            </div>
+            <div class="font-bold text-xs sm:text-sm text-slate-900">🔇 音声なしで自力音読</div>
+            <p class="text-[11px] text-slate-600">お手本を止め、チャンクの光に合わせて自分の声だけで読みます。</p>
+          </button>
+
+          <button id="reciteCheckBtn" class="p-3.5 rounded-xl border-2 border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-left transition space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-800">④ 暗唱 (運動神経化)</span>
+              <span id="reciteCountBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-white text-amber-800">0/3回</span>
+            </div>
+            <div class="font-bold text-xs sm:text-sm text-slate-900">🧠 文字を見ずに暗唱</div>
+            <p class="text-[11px] text-slate-600">英語を隠して、頭と口の記憶だけで言ってみよう。</p>
+          </button>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button id="step3ToStep4Btn" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold transition">
+            純粋音読・暗唱ができたので「Step 4: チャンク1秒後リフレイン＆頭出しリテンション」へ →
+          </button>
+        </div>
+      </section>
+
+      <!-- =========================================================
+           PANEL STEP 4: チャンク1秒後リフレイン（ゴースト消失 ＆ 頭出しトリガー）＋ 仕上げユニゾン
+           ========================================================= -->
+      <section id="panelStep4" class="step-panel bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 pb-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-indigo-600">STEP 4：チャンク・リテンション＆1秒後リフレイン（頭出しトリガー / 段階的エコー消失）</span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">音韻ループの器を広げる内言トレーナー</span>
+          </div>
+          <h3 class="font-bold text-base text-slate-900 mt-1">チャンクごとに「1秒後のエコー（または頭出し）」で音の塊を保持し、頭の中で英語を響かせよう</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            意味の塊（チャンク）ごとに音声が流れ、<strong>1秒後にリフレイン（エコー）</strong>が鳴ります。Round 1 ➔ Round 2 ➔ Round 3 と進むにつれて<strong>「エコーが消える（または最初の頭出しだけ鳴って止まる）」</strong>ため、頭の中で自然に続きの英語が再生されるようになります。
+          </p>
+        </div>
+
+        <!-- =======================================================
+             CHUNK REFRAIN & HEAD-START RETENTION ENGINE UI
+             ======================================================= -->
+        <div class="rounded-2xl bg-slate-900 text-white p-5 space-y-5 shadow-md border border-slate-800">
+          <!-- Mode Selector Tabs (① ヘッドスタート頭出し vs ② ゴースト・エコー消失 vs ③ 全文ユニゾン仕上げ) -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div>
+              <div class="text-xs font-bold text-amber-400 uppercase tracking-wider">🎧 1秒後リフレイン・内言誘発プレイヤー</div>
+              <p class="text-xs text-slate-300 mt-0.5">青色＝「お手本チャンク再生」 ／ <span class="text-amber-300 font-bold">琥珀色＝「1秒後のリテンション・内言スペース」</span></p>
+            </div>
+            <div class="flex flex-wrap bg-slate-800 p-1 rounded-xl shrink-0 self-start gap-1">
+              <button id="modeHeadStartBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-sm transition">
+                ⚡ ① 頭出しトリガー法 (おすすめ!)
+              </button>
+              <button id="modeGhostFadeBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
+                👻 ② だんだん消えるエコー法
+              </button>
+              <button id="modeUnisonFinishBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
+                🔥 ③ 仕上げ：全文同時内言
+              </button>
+            </div>
+          </div>
+
+          <!-- Explanation Box -->
+          <div id="refrainModeDescBox" class="text-xs bg-slate-800/90 border border-slate-700 rounded-xl p-3.5 text-slate-200 leading-relaxed">
+            <strong>【⚡ ① 頭出しトリガー法（ヘッドスタート・リテンション）の仕組み】</strong><br>
+            ・<strong>Round 1 (フルエコー)</strong>：お手本チャンクの1秒後に、少し控えめな音量で<strong>チャンク全文のエコー</strong>が鳴ります。一緒に頭の中でなぞってください。<br>
+            ・<strong>Round 2 (頭出しのみ！)</strong>：1秒後に<strong>最初の1〜2語だけ</strong>が鳴ってピタッと止まります！残りの言葉を自分の頭の中の声（Inner Speech）で最後まで鳴らし切ってください。<br>
+            ・<strong>Round 3 (完全内言)</strong>：1秒後に「ピッ」と合図だけ鳴り、<strong>無音のリテンション空間</strong>が作られます。チャンク丸ごと頭の中で再現します。
+          </div>
+
+          <!-- Controls Row: 3 Rounds Auto-Play & Single Round Test Buttons -->
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="start3RoundsRefrainBtn" class="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs sm:text-sm flex items-center space-x-2 shadow transition">
+                <span>▶ 3周連続プログラムを開始 (Round 1 ➔ Round 2 ➔ Round 3)</span>
+              </button>
+              <button id="stopRefrainBtn" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-xs transition">
+                ■ 停止
+              </button>
+            </div>
+
+            <!-- Single Round Buttons -->
+            <div class="flex flex-wrap items-center gap-1.5 text-xs">
+              <span class="text-slate-400 text-[11px] mr-1">単発テスト:</span>
+              <button data-round="1" class="single-round-btn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold transition">
+                R1 (フルエコー)
+              </button>
+              <button data-round="2" class="single-round-btn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-amber-500/50 text-amber-300 font-bold transition">
+                R2 (頭出し / 小声)
+              </button>
+              <button data-round="3" class="single-round-btn px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-indigo-400/50 text-indigo-300 font-bold transition">
+                R3 (無音リテンション)
+              </button>
+            </div>
+          </div>
+
+          <!-- LIVE CHUNK RETENTION CARDS STAGE -->
+          <div class="rounded-xl bg-slate-950 border border-slate-800 p-4 sm:p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-800/80 pb-2.5">
+              <span id="refrainStageStatus" class="font-bold text-amber-400">待機中：ボタンを押すとチャンク単位の「1秒後リフレイン」が始まります</span>
+              <span id="refrainRoundBadge" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">Round - / 3</span>
+            </div>
+
+            <!-- Chunk Cards Grid -->
+            <div id="refrainChunksGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 max-h-[380px] overflow-y-auto pr-1">
+              <!-- Populated dynamically by JS -->
+            </div>
+
+            <!-- Live Echo / Inner Speech Prompt Bar -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center space-x-2">
+                <span id="livePhasePill" class="text-[11px] font-bold px-2.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">🎧 ガイド</span>
+                <span id="liveRefrainTargetText" class="text-sm font-bold text-white tracking-wide">各チャンクカードをクリックして単体でリテンション練習することもできます</span>
+              </div>
+              <div id="liveRefrainSubHint" class="text-xs text-amber-300 font-medium">
+                頭出し（R2）で続きがスッと出てくるようになれば合格です！
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comprehension & Retention Verification -->
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+          <div class="text-xs font-bold text-slate-800">✅ 到達度チェック：Round 2（頭出しのみ）や Round 3（無音）で、チャンクの最後まで頭の中で音が鳴りましたか？</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button id="verifyMasteryYesBtn" class="p-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold text-left transition">
+              ⭕ 頭出しだけで、残りのチャンクが鮮明に頭の中で再生された！<br>
+              <span class="font-normal text-[11px] text-emerald-700">→ 1.2倍速モードを解放し、次の文・段落へ進めます</span>
+            </button>
+            <button id="verifyMasteryNoBtn" class="p-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold text-left transition">
+              🔺 頭出しが止まると、後半の音が崩れる・思い出せない<br>
+              <span class="font-normal text-[11px] text-amber-700">→ 「Step 3：③純粋な音読 ＆ ④暗唱」に戻り、自分の口で言えるようにしてから再挑戦しよう</span>
+            </button>
+          </div>
+          <div id="masteryFeedbackMsg" class="text-xs font-bold text-indigo-700 pt-1"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Right Column: Story Context Viewer, Telemetry Metrics & Weakness Hypotheses (4 cols) -->
+    <div class="lg:col-span-4 space-y-5">
+
+      <!-- 0. Current Page Story Context Card (Click any sentence/paragraph to select!) -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">📖 ページ内の英文一覧（クリックで範囲選択）</h3>
+            <p class="text-[11px] text-slate-500">下の英文をクリックすると、その文・段落を即座に練習対象にできます</p>
+          </div>
+          <span id="pageViewerBadge" class="text-[11px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">Page 5</span>
+        </div>
+        <div id="pageInteractiveScriptList" class="space-y-2 max-h-[280px] overflow-y-auto pr-1 text-xs">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- 1. Process Telemetry Card -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">学習プロセス記録（自動レベル調整指標）</h3>
+            <p class="text-xs text-slate-500">正答率だけでなく「どれだけ補助を使ったか」を記録</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] text-slate-500 font-medium">必要な再生回数</div>
+            <div class="text-lg font-bold text-slate-900 mt-0.5"><span id="metricPlayCount">0</span> <span class="text-xs font-normal text-slate-500">回</span></div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] text-slate-500 font-medium">ヒント・低速使用</div>
+            <div class="text-lg font-bold text-slate-900 mt-0.5"><span id="metricHintCount">0</span> <span class="text-xs font-normal text-slate-500">回</span></div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] text-slate-500 font-medium">1.0x 理解安定度</div>
+            <div id="metricStabilityStatus" class="text-xs font-bold text-amber-600 mt-1">確認中 (1.2xロック)</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] text-slate-500 font-medium">翌日再現チェック</div>
+            <div class="text-xs font-bold text-indigo-600 mt-1"><span id="metricRetentionCount">1</span> 範囲 待機中</div>
+          </div>
+        </div>
+
+        <!-- Next-Day Retention Simulator Box -->
+        <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-900">📅 翌日の再現率テスト（抜き打ちチェック）</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-900 font-bold">定着判定</span>
+          </div>
+          <p class="text-[11px] text-emerald-800 leading-relaxed">
+            練習した直後に聞けても、翌日に1回で聞けるとは限りません。下のボタンで「文字を見ずに1回再生テスト」を試せます。
+          </p>
+          <button id="runNextDayTestBtn" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm">
+            ▶ 翌日モード：スクリプトなしで1回聞いて判定
+          </button>
+          <div id="nextDayResultBox" class="hidden pt-2 border-t border-emerald-200/80 space-y-1.5">
+            <p class="text-xs font-bold text-emerald-950">今の1回の再生で、音も意味もバッチリ思い浮かびましたか？</p>
+            <div class="flex space-x-2">
+              <button id="nextDayPassBtn" class="flex-1 py-1.5 rounded bg-emerald-700 text-white text-xs font-bold">できた (定着完了!)</button>
+              <button id="nextDayFailBtn" class="flex-1 py-1.5 rounded bg-white border border-emerald-300 text-emerald-900 text-xs font-bold">怪しい (Step 3暗唱へ)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Weakness Hypothesis Statistics Card -->
+      <section class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">あなたの「つまずき原因候補」統計</h3>
+            <p class="text-xs text-slate-500">事前タグ × 自己申告の累積データ</p>
+          </div>
+          <button id="resetStatsBtn" class="text-xs text-slate-400 hover:text-rose-600 transition">
+            リセット
+          </button>
+        </div>
+
+        <div id="weaknessBarsContainer" class="space-y-2.5 pt-1"></div>
+
+        <div id="coachRecommendationBox" class="bg-indigo-50/80 border border-indigo-100 rounded-xl p-3.5 space-y-1.5">
+          <div class="flex items-center space-x-1.5 text-indigo-800 font-bold text-xs">
+            <span>🧭 小学生指導・ナビゲーション</span>
+          </div>
+          <p id="coachRecommendationText" class="text-xs text-indigo-950 leading-relaxed">
+            まずは上部のバーで<strong>「① 1文ごと」</strong>を選び、短い1文から<strong>Step 3（純粋音読・暗唱）</strong>と<strong>Step 4（頭出しリテンション）</strong>を試してみましょう。慣れてきたら「段落ごと」「ページごと」へ範囲を広げられます！
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    /********************************************************************
+     * 1. PDF『Tsunehito and the Mysterious Adventure Beyond Time (Vol. 1-4)』
+     *    全ページの英文データセット（完全固定・変更不可）
+     ********************************************************************/
+    const TSUNEHITO_BOOK_PAGES = [
+      // ==================== VOLUME 1 ====================
+      {
+        page: 5,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 1: A Boy Far Beyond His Years",
+        illustration: "Tsunehito sat quietly by a large window inside his classroom, engrossed in reading difficult books about the universe.",
+        paragraphs: [
+          "For a fifth grader, Tsunehito was remarkably mature.",
+          "While the other children in his class excitedly talked about video games and YouTube, Tsunehito often stood a little apart, wearing an expression that made it seem as though he could see straight through the world.",
+          "\"People tend to assume that everything they can see is all there is to the world,\" he remarked one day.",
+          "He was eating curry for school lunch when he suddenly said it.",
+          "\"Huh? What are you talking about? The curry?\" one of his friends asked.",
+          "\"No. Curry is just curry.\""
+        ]
+      },
+      {
+        page: 6,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 1: A Boy Far Beyond His Years",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito calmly took a sip of milk, as though nothing unusual had happened.",
+          "He loved reading difficult books: books about the beginning of the universe, ancient civilizations, the true nature of time, and worlds that human beings had yet to discover.",
+          "But Tsunehito had one secret.",
+          "He truly believed that a hidden entrance existed somewhere in the world—an entrance that no one had ever noticed.",
+          "And one rainy day, that entrance suddenly appeared."
+        ]
+      },
+      {
+        page: 7,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 2: Thirteen O'Clock at the Clock Tower",
+        illustration: "The clock struck thirteen times, and the bookshelves slid apart to reveal an endless staircase.",
+        paragraphs: [
+          "After school, Tsunehito was at an old library in his neighborhood.",
+          "Outside, rain poured from the sky. Thunder rumbled, and the windowpanes trembled.",
+          "Suddenly, Tsunehito noticed an old clock hanging on the wall.",
+          "It should have been 4:15 p.m.",
+          "But something was wrong.",
+          "The hands of the clock were moving backward.",
+          "\"I see. A malfunction or perhaps something else...\"",
+          "The moment Tsunehito stepped closer, the clock face began to glow with a pale blue light."
+        ]
+      },
+      {
+        page: 8,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 2: Thirteen O'Clock at the Clock Tower",
+        illustration: "",
+        paragraphs: [
+          "Then the clock struck thirteen times.",
+          "Dong. Dong. Dong.",
+          "The sound seemed to echo not so much through his ears as directly inside his head.",
+          "When the thirteenth chime faded away, the clock face slowly opened.",
+          "A small metal key floated inside.",
+          "Strange characters, unlike anything Tsunehito had ever seen, were engraved on its surface.",
+          "Yet, for some mysterious reason, he understood what they meant.",
+          "\"Welcome to the Other Side of the World.\"",
+          "Tsunehito picked up the key.",
+          "At once, the library bookshelves slid apart, revealing an endless staircase hidden behind them.",
+          "\"...I doubt my teachers would believe me if I tried to explain this.\"",
+          "Tsunehito smiled faintly. Then he began to descend the stairs."
+        ]
+      },
+      {
+        page: 9,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 3: The Sea That Floated in the Sky",
+        illustration: "A vast ocean floated high above him in the sky, and in the distance stood a castle built upside down.",
+        paragraphs: [
+          "At the bottom of the staircase, Tsunehito found himself staring at an unbelievable sight.",
+          "A vast ocean floated high above him in the sky.",
+          "Fish swam between the clouds, while transparent jellyfish glowed like stars.",
+          "Blue grass covered the ground, and in the distance stood a castle built upside down.",
+          "\"So gravity doesn't always point in the same direction here. Or perhaps the laws of physics themselves are different...\""
+        ]
+      },
+      {
+        page: 10,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 3: The Sea That Floated in the Sky",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito folded his arms and considered the possibilities.",
+          "That was when he heard a voice.",
+          "\"Hey, you! Human!\"",
+          "The voice came from near his feet.",
+          "Tsunehito looked down. A black cat was standing upright on two legs, glaring at him with golden eyes.",
+          "The cat wore a tiny vest and held a pocket watch in one paw.",
+          "\"It's been three hundred years since a human last came here!\"",
+          "\"You can talk?\"",
+          "\"That's what surprises you?! There are much more astonishing things going on!\"",
+          "The black cat lashed its tail in annoyance.",
+          "\"My name is Chrono. I'm the guardian of time in this world. Now, what have you come here for?\"",
+          "Tsunehito thought for a moment before answering.",
+          "\"No particular reason. It looked interesting, so I came.\"",
+          "Chrono's eyes widened. \"...Aren't you afraid?\"",
+          "\"You need enough information before you can decide whether something is frightening.\"",
+          "Chrono fell silent for a while. Then he muttered under his breath, \"I've brought myself a troublesome human...\""
+        ]
+      },
+      {
+        page: 11,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 4: The World Begins to Disappear",
+        illustration: "",
+        paragraphs: [
+          "According to Chrono, this world was sustained by a gigantic crystal known as the Heart of Time.",
+          "But three days earlier, a crack had appeared in the crystal, and time had begun to break down throughout the world.",
+          "Flowers that had bloomed yesterday returned to their buds.",
+          "River water flowed backward, rising into the sky.",
+          "Living creatures suddenly aged by hundreds of years.",
+          "And if the Heart of Time shattered within the next twenty-four hours, the entire world would cease to exist.",
+          "\"So why was I summoned?\" Tsunehito asked.",
+          "Chrono stared at the key in Tsunehito's hand.",
+          "\"That key is the only one capable of repairing the Heart of Time. But the person who uses it must meet a certain condition.\"",
+          "\"What condition?\"",
+          "\"Someone who wishes to know the future but refuses to be controlled by it.\"",
+          "Tsunehito thought about this for a moment.",
+          "\"I see. Knowing the future and deciding the future are two different things.\"",
+          "Chrono looked astonished. \"...Are you really a fifth grader?\"",
+          "\"Age and intelligence aren't necessarily correlated.\""
+        ]
+      },
+      {
+        page: 12,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 4: The World Begins to Disappear",
+        illustration: "",
+        paragraphs: [
+          "\"The way you talk is irritating every single time!\"",
+          "And so, Tsunehito's extraordinary adventure began."
+        ]
+      },
+      {
+        page: 13,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 5: The Shop That Sold the Future",
+        illustration: "The mysterious shopkeeper transforming into swirling black smoke before the young adventurers.",
+        paragraphs: [
+          "On their way to the castle where the Heart of Time was kept, Tsunehito and Chrono came across a strange shop.",
+          "A sign above the entrance read: WE BUY YOUR FUTURE!",
+          "Inside, countless transparent bottles stood neatly arranged on shelves.",
+          "Within each bottle, the future of a stranger played out like a moving picture.",
+          "\"If you sell your future here, you can receive money or have a wish granted,\" Chrono explained."
+        ]
+      },
+      {
+        page: 14,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 5: The Shop That Sold the Future",
+        illustration: "",
+        paragraphs: [
+          "An elderly shopkeeper approached Tsunehito.",
+          "\"Well, young man. Your future is a very rare one. Sell it to me, and I'll grant you any one wish you desire.\"",
+          "\"Any wish?\"",
+          "\"That's right. You could become fabulously wealthy, the greatest genius in the world, or even a king.\"",
+          "Tsunehito looked at a large bottle near the back of the shop. Inside it was a vision of his future self.",
+          "The grown-up Tsunehito stood in an impressive building, surrounded by crowds of people. Everyone respected him and listened carefully to his words.",
+          "It wasn't a bad future at all. But Tsunehito shook his head.",
+          "\"I won't sell it.\"",
+          "The smile vanished from the old man's face.",
+          "\"Why not? You're an intelligent boy. Don't you understand your own worth?\"",
+          "\"I understand it perfectly. That's why I won't sell it.\" Tsunehito spoke quietly.",
+          "\"The future is something that hasn't happened yet. If I hand it over to someone else now, there'll be no point in making my own choices from this moment on.\"",
+          "The old man said nothing. Then, slowly, his body transformed into black smoke.",
+          "\"...So it really is you.\""
+        ]
+      },
+      {
+        page: 15,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 5: The Shop That Sold the Future",
+        illustration: "",
+        paragraphs: [
+          "A low voice echoed from within the smoke.",
+          "\"The one who will shatter the Heart of Time has finally appeared.\"",
+          "Chrono cried out. \"No! It can't be... You're the one destroying time!\"",
+          "The black smoke laughed. And then the sky split in two."
+        ]
+      },
+      {
+        page: 16,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 6: The Final Choice",
+        illustration: "Tsunehito inserts the key into the giant cracked crystal as the world halts around them.",
+        paragraphs: [
+          "The black smoke was once a being who had governed time in this world.",
+          "It had tried to control the future completely. But the future had refused to obey, and in the end, the being had decided to destroy the world itself.",
+          "\"Why not decide everything about the future in advance?!\" the dark figure shouted.",
+          "\"I shall create a world without failure, sorrow, or regret!\"",
+          "Tsunehito tightened his grip on the key.",
+          "\"That's impossible.\"",
+          "\"What did you say?\""
+        ]
+      },
+      {
+        page: 17,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 6: The Final Choice",
+        illustration: "",
+        paragraphs: [
+          "\"If there's no failure, there's no need to take on challenges. And if there's no sorrow, we might lose the very feelings that make us care about other people.\"",
+          "Tsunehito looked straight at the shadow.",
+          "\"Isn't being able to choose our own future more important than creating a perfect one?\"",
+          "The shadow trembled violently. \"You insolent child!\"",
+          "\"Being a child means I still have lots of possible futures to choose from.\"",
+          "At that moment, the key in Tsunehito's hand burst into dazzling light.",
+          "A shining path stretched toward the Heart of Time at the top of the castle.",
+          "Tsunehito ran. He raced up the stairs, leaped across the crumbling castle, and flung open the final door.",
+          "Inside floated a gigantic blue crystal. Countless cracks spread across its surface.",
+          "Tsunehito inserted the key. Click.",
+          "The world came to a standstill. The fish, the clouds, the wind, Chrono—everything stopped moving.",
+          "Then a voice echoed inside Tsunehito's mind. Choose one."
+        ]
+      },
+      {
+        page: 18,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Chapter 6: The Final Choice",
+        illustration: "",
+        paragraphs: [
+          "If you restore the world, you will lose every memory of this adventure.",
+          "Or you may keep discovering the secrets of this world, but you will never be able to return to your own.",
+          "Tsunehito closed his eyes. This world was beautiful.",
+          "It had strange creatures, an ocean floating in the sky, and a cat who could control time.",
+          "If he stayed, he would surely discover many more secrets.",
+          "But in his own world, his family was waiting. So were his friends. And there was still a future he had yet to discover.",
+          "Slowly, Tsunehito opened his eyes. \"I'm going home.\"",
+          "He turned the key. Blue light spread throughout the world.",
+          "The cracks in the crystal vanished. The ocean in the sky returned to its proper place, and time began to flow again.",
+          "At last, Tsunehito heard Chrono's voice. \"Tsunehito! Let's meet again someday!\"",
+          "Tsunehito smiled. \"That possibility isn't zero.\"",
+          "Then the world was swallowed by light."
+        ]
+      },
+      {
+        page: 19,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Epilogue: Monday Morning",
+        illustration: "Luna standing on the vibrant blue grass, holding the glowing brass key as Chrono opens his pocket watch.",
+        paragraphs: [
+          "\"...Hmm?\"",
+          "Tsunehito was slumped over a desk in the library.",
+          "The sky outside was clear. The clock on the wall showed 4:15 p.m.",
+          "Had it all been a dream?",
+          "Just as he stood up, something in his pocket began to glow.",
+          "He reached inside and pulled out a small metal key.",
+          "Strange characters were engraved on it: MEET ME AGAIN AT THIRTEEN O'CLOCK."
+        ]
+      },
+      {
+        page: 20,
+        volume: "Volume 1: Tsunehito and the Mysterious Adventure Beyond Time",
+        chapter: "Epilogue: Monday Morning",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito stared at the key for a long moment.",
+          "Then, in a voice no one else could hear, he murmured, \"...I see. So it isn't over yet.\"",
+          "That night, Tsunehito had a dream.",
+          "Beyond the ocean floating in the sky, Chrono the black cat opened his pocket watch. Its hands pointed to thirteen o'clock.",
+          "Beside Chrono stood a girl Tsunehito had never seen before. She held a key very much like his own.",
+          "\"Looks like it's her turn next,\" Chrono said.",
+          "The girl nodded quietly. \"No. Now it's time to uncover the secret of the world itself.\"",
+          "At that very moment, the clock rang. Thirteen times.",
+          "And the story began to move once more. Tsunehito's adventure was far from over."
+        ]
+      },
+
+      // ==================== VOLUME 2 ====================
+      {
+        page: 22,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 1: The Transfer Student on Monday",
+        illustration: "The mysterious transfer student Luna sits beside Tsunehito, whisper-sharing her secrets.",
+        paragraphs: [
+          "It was Monday morning. Tsunehito was heading to school at his usual time.",
+          "The night before, he had had a strange dream: an ocean floating in the sky, a black cat named Chrono who controlled time, and a girl he had never seen before.",
+          "The details had been far too vivid for an ordinary dream.",
+          "\"Human memory is a rather unreliable thing,\" Tsunehito muttered as he walked through the school gates.",
+          "When he entered his classroom, it was noisier than usual.",
+          "\"I heard we're getting a new transfer student today!\""
+        ]
+      },
+      {
+        page: 23,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 1: The Transfer Student on Monday",
+        illustration: "",
+        paragraphs: [
+          "\"I think it's a girl!\" \"Apparently, she's super smart!\"",
+          "Tsunehito set his schoolbag on his desk.",
+          "\"How can people get so excited over nothing more than a few details about a transfer student...?\"",
+          "Just then, their homeroom teacher entered the classroom.",
+          "\"Everyone, take your seats. Today, I'd like to introduce a new member of our class.\"",
+          "A girl appeared from behind the teacher.",
+          "She had long black hair, calm eyes, and an expression far more composed than one would expect from someone her age.",
+          "She looked around the classroom. The moment she spotted Tsunehito, her eyes narrowed ever so slightly.",
+          "\"Hello. My name is Luna Minazuki. It's nice to meet you.\"",
+          "The teacher wrote her name on the blackboard. After bowing politely, Luna whispered something to the teacher.",
+          "\"Oh? Ah, I see. In that case, why don't you sit next to Tsunehito?\"",
+          "Tsunehito froze. The girl took the seat beside him.",
+          "Then, pretending to take her textbook out of her bag, she whispered: \"I've finally found you.\"",
+          "\"...Found me? What for?\"",
+          "\"The person who once saved the world.\"",
+          "Tsunehito slowly turned to face her."
+        ]
+      },
+      {
+        page: 24,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 1: The Transfer Student on Monday",
+        illustration: "",
+        paragraphs: [
+          "\"Who are you?\"",
+          "Luna smiled. \"Someone just like you. Someone who knows what lies beyond the boundaries of this world.\"",
+          "Tsunehito looked out the window. The sky was blue. The clouds drifted by as usual.",
+          "And yet, somehow, he knew. Something was about to begin again."
+        ]
+      },
+      {
+        page: 25,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 2: The Missing Student Number",
+        illustration: "In a quiet school science lab, Tsunehito and Luna examine the blurred, blacked-out photograph of a missing student.",
+        paragraphs: [
+          "It happened during math class that afternoon.",
+          "The teacher was looking through the attendance register when she suddenly tilted her head in confusion.",
+          "\"That's strange...\"",
+          "\"What is it?\" one of the students asked.",
+          "\"Well, there seems to be one extra student number.\"",
+          "The teacher checked the register several times.",
+          "\"There should be thirty students in this class, but there's a name listed under number thirty-one.\"",
+          "The classroom erupted into whispers."
+        ]
+      },
+      {
+        page: 26,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 2: The Missing Student Number",
+        illustration: "",
+        paragraphs: [
+          "\"Who is it?\" \"I've never heard that name before...\"",
+          "The teacher read the name aloud. \"...Luna Minazuki?\"",
+          "Everyone turned to look at Luna. She continued moving her pencil across her notebook as if nothing unusual had happened.",
+          "\"That's me, Sensei,\" she said.",
+          "\"But you're a transfer student. You shouldn't have been assigned number thirty-one, should you?\"",
+          "\"That's true.\" Luna looked up.",
+          "\"But, Sensei, if you simply assume there have been thirty-one students from the beginning, there's no problem.\"",
+          "\"What?\"",
+          "\"After all, isn't it possible that your memory is mistaken, and there were thirty-one students all along?\"",
+          "The teacher looked puzzled. \"Well... when you put it that way, I suppose it's possible...\"",
+          "Tsunehito reached under the desk and tugged at Luna's sleeve. \"Come with me.\"",
+          "During the break, the two of them went into the empty science lab.",
+          "Tsunehito closed the door and stared at her. \"What did you do?\""
+        ]
+      },
+      {
+        page: 27,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 2: The Missing Student Number",
+        illustration: "",
+        paragraphs: [
+          "\"Nothing.\"",
+          "\"Don't lie. You changed the teacher's memories, didn't you?\"",
+          "Luna looked slightly surprised. \"You really are sharp.\"",
+          "\"Explain.\"",
+          "Luna walked over to the window.",
+          "\"There were only thirty students in this class originally. But starting this morning, the records of the world have been changing, little by little.\"",
+          "\"The records of the world?\"",
+          "\"Human memories, photographs, documents, history—every piece of information that exists in the world.\"",
+          "Luna took a photograph out of her pocket. It showed everyone in Tsunehito's class.",
+          "But standing at the very back was a boy Tsunehito had never seen before. Only the boy's face had been blacked out.",
+          "\"Who do you think this boy is?\" Luna asked.",
+          "Tsunehito took the photograph. He studied it for a while before answering quietly. \"...Someone who doesn't exist.\"",
+          "\"Correct.\" Luna nodded. \"More precisely, he's someone who existed once, but was erased from the world.\""
+        ]
+      },
+      {
+        page: 29,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 3: The Black Notebook",
+        illustration: "Within the hidden school vault, a masked man with a glowing key confronts Tsunehito and Luna.",
+        paragraphs: [
+          "After school, Tsunehito and Luna headed to the old school building.",
+          "According to Luna, the strange changes in the world's records seemed to be connected to an old archive beneath the building.",
+          "\"How do you know that?\" Tsunehito asked.",
+          "\"I saw it in a dream.\"",
+          "\"A dream?\"",
+          "\"Yes. I had the same dream as you—the ocean in the sky, the black cat, and the broken clock.\"",
+          "Tsunehito stopped walking."
+        ]
+      },
+      {
+        page: 30,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 3: The Black Notebook",
+        illustration: "",
+        paragraphs: [
+          "\"...You know that world?\"",
+          "\"Rather than knowing it, I was born there.\" Luna spoke in her usual calm voice.",
+          "\"Or, to be precise, I was born at the boundary between that world and this one.\"",
+          "Beneath the old school building, they found a locked door.",
+          "When Luna touched it with her fingertips, the keyhole glowed blue. The door swung open.",
+          "Inside, old books lined every wall. At the center of the room lay a single black notebook.",
+          "Tsunehito approached it. Golden letters on the cover read: RECORD OF EXISTENCE VOLUME 13.",
+          "\"Volume thirteen...?\" Tsunehito remembered the clock he had seen before. Thirteen chimes. The thirteenth world. And now, this notebook.",
+          "He opened the cover. The first page read: There are twelve worlds in existence. Each world has its own time and its own history."
+        ]
+      },
+      {
+        page: 31,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 3: The Black Notebook",
+        illustration: "",
+        paragraphs: [
+          "But the thirteenth world must never exist. For the thirteenth world contains a record of how every world will end.",
+          "Tsunehito turned the page. A list of worlds stretched before him. The First World. The Second World. The Third World.",
+          "Then he reached the final page. There was only one line written on it: Guardian of the Thirteenth World - Tsunehito.",
+          "\"...What?\" Tsunehito snapped the notebook shut. \"This has to be a mistake.\"",
+          "Luna shook her head. \"No. It isn't.\"",
+          "\"I'm just an ordinary fifth grader!\"",
+          "\"Perhaps you're the only one who believes that.\"",
+          "At that very moment, the lights went out. From somewhere behind the bookshelves came the sound of footsteps.",
+          "Clack. Clack. Clack. Someone laughed in the darkness."
+        ]
+      },
+      {
+        page: 32,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 3: The Black Notebook",
+        illustration: "",
+        paragraphs: [
+          "\"At last, we meet, Guardian.\"",
+          "Tsunehito spun around.",
+          "A man wearing a white mask stood before them.",
+          "In his hand was a key—exactly like the one Tsunehito carried."
+        ]
+      },
+      {
+        page: 33,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 4: The Enemy from the Future",
+        illustration: "",
+        paragraphs: [
+          "\"What do you mean by 'Guardian'?\" Tsunehito demanded.",
+          "The man didn't answer. Instead, he traced a finger over his white mask.",
+          "\"Do you still not know who you really are?\"",
+          "\"Answer my question.\"",
+          "\"Very well.\" The man removed his mask.",
+          "The moment Tsunehito saw his face, he gasped. Standing before him was an older version of himself.",
+          "The same hairstyle. The same eyes. The same features. But his eyes held the weariness of someone who had lived through many long years.",
+          "\"...Is that me?\"",
+          "\"Yes,\" the older Tsunehito replied. \"I am your future self.\"",
+          "Luna stepped forward. \"That's a lie. There isn't just one possible future. You have no proof that you're really his future.\"",
+          "\"Clever, Luna.\" The man turned toward her. \"But you know where I came from, don't you?\"",
+          "Luna fell silent."
+        ]
+      },
+      {
+        page: 34,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 4: The Enemy from the Future",
+        illustration: "",
+        paragraphs: [
+          "The man turned back to Tsunehito.",
+          "\"I have traveled through countless worlds. And I have seen a future in which every single world is destroyed.\"",
+          "\"Every world... destroyed?\"",
+          "\"That's right. No matter what choices anyone makes, every world eventually disappears.\"",
+          "He pointed to the black notebook.",
+          "\"This book contains the endings of every world. No matter how hard you struggle, the ending will never change.\"",
+          "Tsunehito thought for a moment. \"So?\"",
+          "The older Tsunehito frowned. \"What?\"",
+          "\"What are you here to do?\"",
+          "\"To save the world.\"",
+          "\"Then why don't we work together?\"",
+          "The older Tsunehito slowly shook his head. \"No. To save the world, we must make all the worlds into one.\"",
+          "\"Make them one?\"",
+          "\"We must erase all twelve worlds and leave only the thirteenth. In that world, all time can be brought together. We can create a world where no one fails and no one suffers.\"",
+          "Tsunehito looked at the black notebook. \"That isn't saving the world.\""
+        ]
+      },
+      {
+        page: 35,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 4: The Enemy from the Future",
+        illustration: "",
+        paragraphs: [
+          "The older man's expression hardened. \"What did you say?\"",
+          "\"You saw a future where every world was destroyed, and you became afraid. So now you're trying to erase the very possibility of failure.\"",
+          "Tsunehito took a step forward.",
+          "\"But doing that would erase the choices of everyone who's alive right now, too.\"",
+          "The older Tsunehito said nothing for a long time. At last, he clenched his fist around the key.",
+          "\"...You really are just like me.\"",
+          "Suddenly, an enormous magic circle appeared on the floor.",
+          "\"That is exactly why I must stop you here.\"",
+          "White light surrounded Tsunehito and Luna. Their bodies vanished.",
+          "The man's voice echoed through the darkness. \"Think about it before we meet again.\"",
+          "\"Which is truly right: saving the world, or allowing the world to remain free?\""
+        ]
+      },
+      {
+        page: 36,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 5: The Town Where Time Had Stopped",
+        illustration: "In the Graveyard of Time, they encounter a mysterious girl in a red scarf beneath a cracked sky.",
+        paragraphs: [
+          "When Tsunehito opened his eyes, he was somewhere familiar.",
+          "A silent town, with non-moving bystanders and backwards-pointing clocks.",
+          "The Graveyard of Time... he knew.",
+          "Tsunehito gazed at the motionless people. Among them, he noticed one girl who was still moving.",
+          "She looked about his age. A red scarf was wrapped around her neck, and she was crouching in the middle of the road."
+        ]
+      },
+      {
+        page: 37,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 5: The Town Where Time Had Stopped",
+        illustration: "",
+        paragraphs: [
+          "When she noticed Tsunehito, she stood up. \"Are you Tsunehito?\"",
+          "\"I am. Who are you?\"",
+          "The girl smiled with relief. \"Thank goodness. You finally came.\"",
+          "Before answering, she glanced around. Then she spoke in a quiet voice.",
+          "\"I'm the person you failed to save first.\"",
+          "Tsunehito's expression changed. \"...What did you say?\"",
+          "The girl took a piece of paper from her pocket. Tsunehito's name was written on it.",
+          "Beneath his name, a sentence had been written in red ink: TSUNEHITO WILL DESTROY THE THIRTEENTH WORLD.",
+          "The girl looked straight at him. \"Your future self is trying to save the world. But the person who will truly destroy it isn't your future self.\"",
+          "\"Then who is it?\"",
+          "The girl answered slowly. \"You are, Tsunehito. The you who exists right now.\"",
+          "At that instant, every clock in the frozen town began to move at once. All their hands were turning backward."
+        ]
+      },
+      {
+        page: 38,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "Chapter 5: The Town Where Time Had Stopped",
+        illustration: "",
+        paragraphs: [
+          "A gigantic crack spread across the sky. And through the other side of the crack came dozens of Tsunehitos.",
+          "A child Tsunehito. An adult Tsunehito. An elderly Tsunehito. A crying Tsunehito. A laughing Tsunehito.",
+          "Every one of them spoke the same words: \"You are where it all began.\"",
+          "For the first time in his life, Tsunehito was speechless.",
+          "Luna grabbed his arm. \"Tsunehito, run!\"",
+          "But Tsunehito didn't move. He stared at the versions of himself floating in the sky.",
+          "Then he murmured quietly: \"...I see.\"",
+          "\"What do you see?\" Luna asked.",
+          "Tsunehito slowly raised his head. \"I didn't come here to save the world.\"",
+          "The metal key in his hand began to glow. \"The world is testing me.\"",
+          "At that moment, every clock struck thirteen times. And the world turned upside down."
+        ]
+      },
+      {
+        page: 40,
+        volume: "Volume 2: The Thirteenth World and the Girl Who Never Existed",
+        chapter: "End of Part One of Volume 2",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito now faces three mysteries.",
+          "The first: Why is his future self trying to unite all the worlds into one?",
+          "The second: Why does the girl in the Graveyard of Time call herself \"the person he failed to save first\"?",
+          "The third: Is Tsunehito really an ordinary fifth grader?",
+          "And there is one final, more troubling question. If his future self becomes his enemy, will Tsunehito be able to fight against himself?",
+          "The adventure continues..."
+        ]
+      },
+
+      // ==================== VOLUME 3 ====================
+      {
+        page: 42,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 1: The Day the World Turned Upside Down",
+        illustration: "The sky became the ground, and buildings tumbled upside down as Tsunehito and Luna run up an endless staircase floating through space.",
+        paragraphs: [
+          "Having the world turn upside down was a far more unpleasant experience than Tsunehito had imagined.",
+          "The sky became the ground, and the ground became the sky.",
+          "Buildings tumbled upside down, yet no one fell.",
+          "In the distance, a mountain folded in half as easily as a sheet of paper.",
+          "Beyond it appeared a starry sky unlike anything Tsunehito had ever seen.",
+          "Floating in midair, Tsunehito calmly considered what was happening.",
+          "\"I see. Space itself has been inverted. In that case, the very concepts of 'up' and 'down' no longer have any meaning.\"",
+          "\"Tsunehito!\""
+        ]
+      },
+      {
+        page: 43,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 1: The Day the World Turned Upside Down",
+        illustration: "",
+        paragraphs: [
+          "He heard Luna calling. She was spinning several meters away from him.",
+          "\"This is no time for analysis! Do something!\"",
+          "\"What do you expect me to do? I can't act until I know which way gravity is pointing...\"",
+          "At that moment, the metal key flew out of Tsunehito's pocket. It stopped in midair and began to shine with a pale blue light.",
+          "A transparent staircase appeared before him. It stretched endlessly through empty space, with no visible support beneath it.",
+          "Tsunehito grabbed the key again. \"Luna, we're heading for those stairs.\"",
+          "\"How do you know that's the right way?\"",
+          "\"I don't. But we don't have any other options.\"",
+          "\"You're surprisingly bad at making plans.\"",
+          "\"You need information to make a plan. Right now, we don't have enough information.\"",
+          "\"Yes, yes! I get it!\"",
+          "The two of them raced up the staircase. Or perhaps they were running down it. It was impossible to tell.",
+          "Nevertheless, the moment they reached the final step, the world suddenly returned to normal.",
+          "A single door stood before them."
+        ]
+      },
+      {
+        page: 44,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 1: The Day the World Turned Upside Down",
+        illustration: "",
+        paragraphs: [
+          "On it were the words: FIRST MEMORY VAULT.",
+          "Tsunehito stopped in his tracks. \"The First Memory...?\"",
+          "The moment he read the words, something stirred deep inside his mind.",
+          "A memory he had forgotten. An event from his early childhood that he could no longer recall.",
+          "And the voice of someone speaking to him: \"Tsunehito. Whatever you do, you must never open this door.\"",
+          "Tsunehito raised his head. \"...Who said that?\"",
+          "Luna peered into his face. \"What's wrong?\"",
+          "\"Nothing... Forget it.\"",
+          "But Tsunehito knew something had changed.",
+          "Whatever lay beyond that door was more than a collection of records. It was something about himself—something he had forgotten."
+        ]
+      },
+      {
+        page: 45,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 2: Tsunehito at Five Years Old",
+        illustration: "In the vast dark expanse of the vault, they find memories floating in glowing glass-like spheres.",
+        paragraphs: [
+          "The door opened without the key. There were no walls or ceiling inside.",
+          "Instead, countless transparent spheres floated through the darkness. Each sphere contained a moving image.",
+          "Someone's birthday. Someone's first love. The day someone learned to ride a bicycle. The day someone said goodbye to a person they would never see again.",
+          "\"What is this place?\" Luna whispered."
+        ]
+      },
+      {
+        page: 46,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 2: Tsunehito at Five Years Old",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito looked at a nearby sphere. It showed a house he recognized.",
+          "A small child was playing in the garden. The child looked about five years old. It was Tsunehito.",
+          "Beside him was a boy he had never seen before. The two children were laughing as they dug a hole in the ground.",
+          "\"...That's me.\" Tsunehito touched the sphere.",
+          "The little Tsunehito in the image looked up. And, impossibly, he seemed to look straight at the Tsunehito standing outside the sphere.",
+          "\"You finally came.\"",
+          "Tsunehito jerked his hand away. \"Did you hear that?\"",
+          "Luna shook her head. \"Hear what? I didn't hear anything.\"",
+          "The image inside the sphere changed. Little Tsunehito was handing something to the boy beside him.",
+          "It was a small metal key. Exactly like the one Tsunehito carried now.",
+          "Then the boy in the memory spoke. \"It's a promise. Someday, you'll save the world.\""
+        ]
+      },
+      {
+        page: 47,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 2: Tsunehito at Five Years Old",
+        illustration: "",
+        paragraphs: [
+          "Little Tsunehito smiled. \"Okay. I promise.\" The image disappeared.",
+          "Tsunehito stood frozen. \"...Have I had this key since I was five?\"",
+          "Luna was staring at another sphere. Inside it was a little girl. It was Luna as a young child, and she was crying.",
+          "Someone lay on the ground in front of her. The person's face was hidden, but they held the same metal key in their hand.",
+          "Luna's voice trembled. \"...I remember now.\"",
+          "\"What do you remember?\"",
+          "\"We haven't met for the first time today.\" She looked at Tsunehito. \"You've saved me before.\"",
+          "\"When?\"",
+          "\"A long time ago. When the world nearly came to an end.\"",
+          "Tears welled up in Luna's eyes. \"But back then, you...\" She couldn't finish her sentence.",
+          "Suddenly, the entire vault began to shake violently."
+        ]
+      },
+      {
+        page: 48,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 2: Tsunehito at Five Years Old",
+        illustration: "",
+        paragraphs: [
+          "Countless spheres lit up red all at once. An alarm sounded from nowhere and everywhere.",
+          "Warning. Access to the First Memory detected. The Guardian's seal has been released. Beginning restoration of the Final Memory.",
+          "Tsunehito gasped. \"The Final Memory?\"",
+          "At that moment, a gigantic black sphere appeared in the center of the vault.",
+          "It was different from all the others. Words were engraved across its surface: THE DAY TSUNEHITO DESTROYED THE WORLD."
+        ]
+      },
+      {
+        page: 49,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 3: The Worst Possible Future",
+        illustration: "In a deep, starlit memory vault, an older version of Tsunehito removes his mask, offering his hand in a desperate plea.",
+        paragraphs: [
+          "The black sphere opened. Inside it lay a barren wasteland stretching as far as the eye could see.",
+          "The earth was cracked, and the oceans had dried up. No humans remained. No animals. No plants.",
+          "A single boy stood there—Tsunehito, wounded and holding a red-glowing key.",
+          "The sky shattered, and the vision ended.",
+          "Tsunehito stared at the black sphere. \"...Is that supposed to be my future?\"",
+          "Luna shook her head."
+        ]
+      },
+      {
+        page: 50,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 3: The Worst Possible Future",
+        illustration: "",
+        paragraphs: [
+          "\"No. It's one of the possible futures you might choose.\"",
+          "\"But how could something like that happen?\"",
+          "\"I don't know. But...\" Luna hesitated before speaking. \"I think you must have lost someone.\"",
+          "Her words struck Tsunehito deep in the chest. Lost someone.",
+          "For some reason, he felt that he understood the feeling. But he couldn't remember who he might have lost. His family? His friends? Or perhaps Luna?",
+          "Tsunehito clenched his fists. \"If we know the future, we can change it.\"",
+          "\"It won't be that easy.\"",
+          "\"Why not?\"",
+          "\"This isn't just a prediction. It's a record of something that actually happened.\"",
+          "Tsunehito looked up. \"Actually happened?\"",
+          "Luna nodded. \"In another world.\"",
+          "At that moment, applause echoed from the entrance to the vault. Clap. Clap. Clap. They turned around."
+        ]
+      },
+      {
+        page: 51,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 3: The Worst Possible Future",
+        illustration: "",
+        paragraphs: [
+          "The man in the white mask was standing there. Tsunehito's future self.",
+          "In a calm voice, the man said, \"So, you've finally learned something about your own past.\"",
+          "Tsunehito glared at him. \"You knew about this future?\"",
+          "\"Of course.\"",
+          "\"Then why didn't you tell me?\"",
+          "The older man lowered his eyes slightly. \"If I had told you, you would have tried to avoid that future. And by doing so, you might have created an even worse one.\"",
+          "\"So you were just going to leave me alone?\"",
+          "\"No.\" The man stepped forward. \"I came to save you.\"",
+          "He held out his hand to Tsunehito. \"Come with me. We'll unite the twelve worlds into one. Then no one will ever have to be lost again.\"",
+          "Tsunehito stared at the outstretched hand. For just a moment, he wavered.",
+          "If it were truly possible to create a world where no one ever suffered... If no one ever had to lose someone they loved... Would that really be so wrong?",
+          "But Tsunehito did not take his hand."
+        ]
+      },
+      {
+        page: 52,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 3: The Worst Possible Future",
+        illustration: "",
+        paragraphs: [
+          "\"I have one question.\"",
+          "\"What is it?\"",
+          "\"Why do you want to save me?\"",
+          "His future self fell silent. Tsunehito continued.",
+          "\"If you really want to save the world, shouldn't you trust me to choose my own future, whatever it may be?\"",
+          "\"You don't really want to save me. You just want to erase your own failure, don't you?\"",
+          "The man's expression changed. For the first time, anger appeared on his face.",
+          "\"Be quiet.\" His voice was low and cold. \"You understand nothing.\"",
+          "\"Then explain it to me.\"",
+          "\"I said be quiet!\" The man raised his key.",
+          "The entire vault shook, and the black sphere shattered into pieces.",
+          "Luna screamed. \"Tsunehito, run!\"",
+          "But it was too late. The moment Tsunehito's future self turned his key, the world was engulfed in white light."
+        ]
+      },
+      {
+        page: 54,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 4: A Letter from Chrono",
+        illustration: "Shion reveals the endless doors and the truth of Tsunehito's origins beneath a giant, watchful cosmic eye.",
+        paragraphs: [
+          "When Tsunehito opened his eyes, he was back in the familiar neighborhood library.",
+          "The metal key was gone, but a paw-print-stamped letter from Chrono lay on the desk.",
+          "Dear Tsunehito, The future Tsunehito you met really is you. But he isn't exactly the same person. He is the version of you who lived through the future you chose not to take.",
+          "The Thirteenth World is not a place where the futures of the other twelve worlds are recorded. It is—"
+        ]
+      },
+      {
+        page: 55,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "Chapter 4: A Letter from Chrono",
+        illustration: "",
+        paragraphs: [
+          "The bottom of the page was torn off, leaving only a faint line on the reverse: The true enemy is not the one who destroys the world. It is the one who created it.",
+          "Suddenly, the old clock chimed thirteen times and the hands began turning backward.",
+          "A voice spoke behind him. \"You couldn't read the whole letter, could you?\"",
+          "A boy with silver hair and heterochromatic eyes stood there. \"Hello, Tsunehito. You could call me the person who knows you better than anyone else.\"",
+          "The boy, Shion, pointed out the window. A gigantic eye floated in the sky, larger than the clouds or mountains.",
+          "\"Have you ever wondered who created you?\"",
+          "The boy snapped his fingers, and the entire library, sky, and ground vanished into a vast white space, filled with rows of doors labeled TSUNEHITO.",
+          "\"You weren't created to save this world. You were created to bring the world to an end.\""
+        ]
+      },
+      {
+        page: 56,
+        volume: "Volume 3: Another Tsunehito and the First Memory That Vanished",
+        chapter: "End of Part One of Volume 3",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito's adventure is drawing closer to its deepest secrets.",
+          "What is his future self afraid of? What memory has Luna lost? What was Chrono unable to write? And who is the silver-haired boy?",
+          "In the next story, Tsunehito will question his own existence. Would he still be able to choose his own future?",
+          "To be continued in Volume 4: The Blueprint of God and the Boy with Free Will."
+        ]
+      },
+
+      // ==================== VOLUME 4 ====================
+      {
+        page: 58,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 1: The Endless Doors Bearing His Name",
+        illustration: "Sealed with heavy chains, a giant book rests on a pedestal: WORLD ENDING PROJECT: ZERO.",
+        paragraphs: [
+          "\"You were created to bring the world to an end.\"",
+          "The silver-haired boy's words hung in the air. Tsunehito remained silent.",
+          "\"Proof?\"",
+          "Shion blinked in surprise, then laughed with delight. \"Ha! I see! You really are that kind of person.\"",
+          "Shion snapped his fingers, opening a door into an endless library.",
+          "Tsunehito picked up a nearby book: THE LIFE OF TARO TANAKA. It documented Taro's entire life, from birth to death.",
+          "\"...This isn't a prediction of the future. It's a record of the future itself.\""
+        ]
+      },
+      {
+        page: 59,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 1: The Endless Doors Bearing His Name",
+        illustration: "",
+        paragraphs: [
+          "\"Correct. This library has existed since the world was created. Every book here records the life of a human being.\"",
+          "\"Then is there a book about me?\"",
+          "Shion pointed toward the farthest bookshelf, which was black and sealed with heavy chains. At its center rested a giant book: TSUNEHITO - WORLD ENDING PROJECT: ZERO.",
+          "Tsunehito approached. The metal key appeared in his hand, and the chains fell away. The book opened by itself:",
+          "When this boy learns the reason for his own existence, the world will enter its final stage. Purpose of the project: Erase everything in the world. Executor of the project: Tsunehito. Scheduled completion date: Undetermined.",
+          "Tsunehito closed the book.",
+          "\"If the person who designed this plan had complete control, they should have decided when it will be completed. But they haven't. That means no one has full control over this project yet.\"",
+          "Shion stopped smiling. \"You really are a troublesome boy.\"",
+          "\"I hear that a lot.\"",
+          "\"You're beginning to understand what the designer of this world fears most: the existence of people who refuse to follow the blueprint.\""
+        ]
+      },
+      {
+        page: 60,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 2: The True Identity of God",
+        illustration: "Tsunehito and Shion stand on a rising circular glass elevator, gazing outward at countless miniature worlds.",
+        paragraphs: [
+          "The silver-haired boy introduced himself as Shion. He explained that this was the Creator's Archive, where blueprints for everything from physics to civilization were kept.",
+          "\"Does God really exist?\"",
+          "\"Yes, but not as a bearded old man. Come upstairs.\"",
+          "They stepped onto an elevator platform and rose. Past a glass wall, they saw countless tiny worlds.",
+          "In the beginning, there was only one world with nothing in it, Shion explained. Then a first consciousness came into being, and to understand itself, it created worlds, life, and humans.",
+          "\"That's one enormous science project,\" Tsunehito said."
+        ]
+      },
+      {
+        page: 61,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 2: The True Identity of God",
+        illustration: "",
+        paragraphs: [
+          "The elevator stopped. In the center of a completely white room, a boy about their age with ordinary black hair and white clothes sat reading.",
+          "Shion spoke nervously: \"This is the being who designed this world—the Creator.\"",
+          "The boy closed his book and looked up. \"Hello, Tsunehito. You're a little late.\""
+        ]
+      },
+      {
+        page: 62,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 3: Tsunehito's Blueprint",
+        illustration: "In a luminous room, Shion and Tsunehito lean forward as the Creator shows a glowing, transparent crystal box.",
+        paragraphs: [
+          "The Creator placed his hand against the wall, showing images of stars, planets, and life forming.",
+          "\"I designed the system, but I didn't decide every single event. That's why I observe.\"",
+          "The Creator then showed an image of the future Tsunehito surrounded by red light.",
+          "\"You have the potential to change the rules of the world itself.\"",
+          "He placed a small box containing a transparent crystal on the table.",
+          "\"This contains the basic information that defines you.\""
+        ]
+      },
+      {
+        page: 63,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 3: Tsunehito's Blueprint",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito touched the crystal. Images of his childhood flooded his mind, ending with an unfamiliar voice holding him: \"Please let this child choose his own future.\"",
+          "Tsunehito snatched his hand away. \"Whose voice was that? Was it someone who raised me?\"",
+          "The Creator was serious. \"There are still other things you need to learn. If you learn the truth now, you may no longer be able to choose your future freely.\"",
+          "\"That isn't your decision to make,\" Tsunehito's voice turned cold.",
+          "The Creator gave a small smile. \"You're right. That is precisely what I wanted to find out.\""
+        ]
+      },
+      {
+        page: 64,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 4: The Creator's Mistake",
+        illustration: "",
+        paragraphs: [
+          "The wall became transparent, showing endless worlds.",
+          "\"I believed I could manage everything, but humans make choices I cannot understand. They help others despite loss, they try with zero chances, and they forgive.\"",
+          "The Creator explained that Tsunehito was born in one of those worlds, a boy who questioned the rules and thought for himself.",
+          "\"So you made me a destroyer?\"",
+          "\"No. That was never the purpose. When you become powerful enough, there's a possibility the world will end—meaning an old system ends and a new one begins.\"",
+          "The Creator fell silent when Tsunehito asked about his future self's terrible suffering, realizing his future self had lost something so painful that he rejected the world.",
+          "\"You're still hiding something.\"",
+          "The Creator closed his eyes. \"You had a younger sister. When you were five, she was three years younger than you. To protect you, she erased her own existence from the world—from memories, photographs, and history.\"",
+          "Tsunehito was stunned. \"Why don't I remember her?\""
+        ]
+      },
+      {
+        page: 65,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 5: The Sister Who Never Existed",
+        illustration: "At the bottom of the dark staircase, Tsunehito finally finds his little sister, who tells him, 'If you save me, the world will disappear.'",
+        paragraphs: [
+          "Long ago, their world had been caught in a catastrophe, and they needed a special being who could interfere with the structure of the world: Tsunehito.",
+          "But when he was little, his power was uncontrollable and broke reality apart.",
+          "So his younger sister chose to sacrifice her own existence to seal his power. Everyone forgot her.",
+          "\"You were supposed to be the one person who remembered her, but your memories were sealed until you were old enough.\"",
+          "\"Where is my sister now?!\""
+        ]
+      },
+      {
+        page: 66,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "Chapter 5: The Sister Who Never Existed",
+        illustration: "",
+        paragraphs: [
+          "A door with a small handprint appeared.",
+          "When Tsunehito saw it, he was five years old again, holding a warm tiny hand while she cried, \"Big Brother, promise me... please don't forget me.\"",
+          "Tsunehito's tears wouldn't stop. \"I remember now. I didn't forget her.\"",
+          "The door opened, and Tsunehito ran down a dark staircase, ignoring the Creator's warnings.",
+          "At the bottom, in a small room, a five-year-old girl in a white dress smiled gently. \"Welcome home, Big Brother.\"",
+          "Tsunehito walked toward her, crying. \"I'm sorry it took so long.\"",
+          "The girl took his hand. \"It's okay. I've been waiting.\"",
+          "Cracks spread across the crumbling room, and the girl's body began to fade into glowing particles.",
+          "\"Wait! This time, I'll save you! I promise!\"",
+          "The girl gave him a sad smile. \"Big Brother... if you save me, the world will disappear.\""
+        ]
+      },
+      {
+        page: 67,
+        volume: "Volume 4: God's Blueprint and the Boy with Free Will",
+        chapter: "End of Part One of Volume 4",
+        illustration: "",
+        paragraphs: [
+          "Tsunehito now faces the greatest choice of his life. If he saves his sister, the world will disappear. If he protects the world, his sister will never return.",
+          "But are those really the only two choices?",
+          "Throughout his adventures, Tsunehito has repeatedly questioned the answers other people tried to impose on him. And now, he makes up his mind.",
+          "\"If someone else has decided that I only have two choices, then I'll find a third answer myself.\"",
+          "Coming next: Volume 5 — Save My Sister. Break the Rules of the World.",
+          "Tsunehito's greatest adventure is about to begin."
+        ]
+      }
+    ];
+
+    // 1段落を1文ずつに丁寧に分割するヘルパー関数
+    function splitParagraphIntoSentences(paragraphText) {
+      const cleaned = paragraphText.replace(/\s+/g, " ").trim();
+      const matches = cleaned.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g);
+      if (!matches) return [cleaned];
+      const merged = [];
+      matches.forEach(s => {
+        const t = s.trim();
+        if (!t) return;
+        // "Dong." や "Clack." や "...Hmm?" などの極端に短い文は次の文と結合せず、独立した1文として小学生でも扱いやすく保持
+        merged.push(t);
+      });
+      return merged;
+    }
+
+    // ページデータに sentences 配列を事前付与し、中身を変更できないように完全固定化 (Deep Freeze)
+    TSUNEHITO_BOOK_PAGES.forEach(p => {
+      p.sentences = [];
+      p.paragraphs.forEach((para, pIdx) => {
+        const sents = splitParagraphIntoSentences(para);
+        sents.forEach(s => {
+          p.sentences.push(Object.freeze({
+            text: s,
+            paragraphIndex: pIdx
+          }));
+        });
+      });
+      Object.freeze(p.paragraphs);
+      Object.freeze(p.sentences);
+      Object.freeze(p);
+    });
+    Object.freeze(TSUNEHITO_BOOK_PAGES);
+
+    // 互換用のQUESTIONS_DATA配列（現在選択中の範囲から動的に1件生成して格納）
+    let QUESTIONS_DATA = [];
+
+    const PHENOMENA_LABELS = {
+      linking: { name: "連結 (Linking)", desc: "前の単語の終わりと次の単語の頭が繋がる現象", color: "bg-indigo-500" },
+      elision: { name: "脱落 (Elision)", desc: "t, d, h などの音が消える現象", color: "bg-rose-500" },
+      weak_form: { name: "弱形 (Weak Form)", desc: "to, of, have, a 等が弱く短くなる現象", color: "bg-amber-500" },
+      assimilation: { name: "同化 (Assimilation)", desc: "前後の音に影響され音が変わる現象", color: "bg-emerald-500" },
+      flapping: { name: "弾音化 (Flapping)", desc: "t がラ行やダ行に近い音になる現象", color: "bg-cyan-500" },
+      reduction: { name: "短縮 (Reduction)", desc: "going to → gonna 等の短縮", color: "bg-purple-500" },
+      vocab: { name: "単語・表現の意味", desc: "音は聞こえたが単語や表現を知らなかった", color: "bg-slate-600" },
+      attention: { name: "音の記憶・保持", desc: "長い文で前の音が頭から消えてしまった", color: "bg-teal-500" }
+    };
+
+    /********************************************************************
+     * 2. アプリ状態管理 ＆ 範囲選択ステート（1文ごと / 段落ごと / ページごと）
+     ********************************************************************/
+    let scopeUnit = "sentence"; // "sentence" | "paragraph" | "page"
+    let selectedChapterFilter = "all";
+    let currentPageIndex = 0;   // TSUNEHITO_BOOK_PAGES 内のインデックス
+    let startUnitIndex = 0;     // sentence / paragraph / page の開始インデックス
+    let endUnitIndex = 0;       // sentence / paragraph / page の終了インデックス
+
+    let currentQuestionIndex = 0;
+    let activeStep = 4;
+    let recommendedStep = 4;
+    let dictationMode = "cloze";
+    let playbackSpeed = 1.0;
+    let is10xStable = false;
+    let isRecitationMasked = false;
+    let availableVoices = [];
+    let selectedVoiceURI = "";
+
+    let step4RefrainMode = "headstart";
+    let streamSessionToken = 0;
+    let activeTimers = [];
+
+    let metrics = {
+      playCount: 0,
+      hintCount: 0,
+      overlap08Count: 0,
+      overlap10Count: 0,
+      pureReadCount: 0,
+      reciteCount: 0,
+      retentionQueueCount: 1
+    };
+
+    let userStats = {
+      linking: 2,
+      weak_form: 2,
+      elision: 1,
+      assimilation: 1,
+      vocab: 1,
+      attention: 1
+    };
+
+    /********************************************************************
+     * 3. 初期化 ＆ 範囲選択（1文・段落・ページ）ロジック
+     ********************************************************************/
+    window.addEventListener("DOMContentLoaded", () => {
+      initScopeSelectors();
+      initSpeechSynthesisVoices();
+      rebuildActiveScopeQuestion();
+      renderWeaknessStats();
+      updateTelemetryUI();
+      switchStep(4);
+      setupEventListeners();
+    });
+
+    function getFilteredPageIndices() {
+      const indices = [];
+      TSUNEHITO_BOOK_PAGES.forEach((p, idx) => {
+        const key = `${p.volume} — ${p.chapter}`;
+        if (selectedChapterFilter === "all" || key === selectedChapterFilter) {
+          indices.push(idx);
+        }
+      });
+      return indices.length > 0 ? indices : [0];
+    }
+
+    function initScopeSelectors() {
+      // チャプター一覧の生成
+      const chapSelect = document.getElementById("chapterFilterSelect");
+      const uniqueChapters = [];
+      TSUNEHITO_BOOK_PAGES.forEach(p => {
+        const key = `${p.volume} — ${p.chapter}`;
+        if (!uniqueChapters.includes(key)) uniqueChapters.push(key);
+      });
+
+      chapSelect.innerHTML = '<option value="all">すべての巻・チャプター (Vol.1〜Vol.4 全ページ)</option>';
+      uniqueChapters.forEach(ch => {
+        const opt = document.createElement("option");
+        opt.value = ch;
+        opt.textContent = ch;
+        chapSelect.appendChild(opt);
+      });
+
+      populatePageAndRangeSelects(true);
+    }
+
+    function populatePageAndRangeSelects(resetIndices = false) {
+      const filteredPages = getFilteredPageIndices();
+      if (!filteredPages.includes(currentPageIndex)) {
+        currentPageIndex = filteredPages[0];
+      }
+
+      const pageSelect = document.getElementById("pageFilterSelect");
+      const pageWrapper = document.getElementById("pageFilterWrapper");
+      const rangeLabel = document.getElementById("rangeSelectLabel");
+      const startSel = document.getElementById("startItemSelect");
+      const endSel = document.getElementById("endItemSelect");
+
+      // ページ選択ドロップダウンの更新
+      pageSelect.innerHTML = "";
+      filteredPages.forEach(pIdx => {
+        const pObj = TSUNEHITO_BOOK_PAGES[pIdx];
+        const opt = document.createElement("option");
+        opt.value = pIdx;
+        opt.textContent = `P.${pObj.page} - ${pObj.chapter} (${pObj.sentences.length}文 / ${pObj.paragraphs.length}段落)`;
+        pageSelect.appendChild(opt);
+      });
+      pageSelect.value = currentPageIndex;
+
+      const pageObj = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+
+      startSel.innerHTML = "";
+      endSel.innerHTML = "";
+
+      if (scopeUnit === "sentence") {
+        pageWrapper.classList.remove("opacity-40", "pointer-events-none");
+        rangeLabel.textContent = "③ 練習する「文」の範囲を指定（同じ番号なら1文だけ、開始〜終了で複数文も指定可）";
+        pageObj.sentences.forEach((sObj, sIdx) => {
+          const preview = sObj.text.length > 42 ? sObj.text.slice(0, 42) + "..." : sObj.text;
+          const opt1 = document.createElement("option");
+          opt1.value = sIdx;
+          opt1.textContent = `第${sIdx + 1}文: ${preview}`;
+          startSel.appendChild(opt1);
+
+          const opt2 = document.createElement("option");
+          opt2.value = sIdx;
+          opt2.textContent = `第${sIdx + 1}文まで (${preview})`;
+          endSel.appendChild(opt2);
+        });
+        if (resetIndices) {
+          startUnitIndex = 0;
+          endUnitIndex = 0;
+        } else {
+          startUnitIndex = Math.min(startUnitIndex, pageObj.sentences.length - 1);
+          endUnitIndex = Math.max(startUnitIndex, Math.min(endUnitIndex, pageObj.sentences.length - 1));
+        }
+      } else if (scopeUnit === "paragraph") {
+        pageWrapper.classList.remove("opacity-40", "pointer-events-none");
+        rangeLabel.textContent = "③ 練習する「段落」の範囲を指定（1段落ずつ、または複数段落をまとめて指定可）";
+        pageObj.paragraphs.forEach((pText, pIdx) => {
+          const preview = pText.length > 42 ? pText.slice(0, 42) + "..." : pText;
+          const opt1 = document.createElement("option");
+          opt1.value = pIdx;
+          opt1.textContent = `第${pIdx + 1}段落: ${preview}`;
+          startSel.appendChild(opt1);
+
+          const opt2 = document.createElement("option");
+          opt2.value = pIdx;
+          opt2.textContent = `第${pIdx + 1}段落まで`;
+          endSel.appendChild(opt2);
+        });
+        if (resetIndices) {
+          startUnitIndex = 0;
+          endUnitIndex = 0;
+        } else {
+          startUnitIndex = Math.min(startUnitIndex, pageObj.paragraphs.length - 1);
+          endUnitIndex = Math.max(startUnitIndex, Math.min(endUnitIndex, pageObj.paragraphs.length - 1));
+        }
+      } else {
+        // scopeUnit === "page"
+        pageWrapper.classList.add("opacity-40", "pointer-events-none");
+        rangeLabel.textContent = "③ 練習する「ページ」の範囲を指定（1ページ丸ごと、または複数ページ連続）";
+        filteredPages.forEach((pIdx) => {
+          const pObj = TSUNEHITO_BOOK_PAGES[pIdx];
+          const opt1 = document.createElement("option");
+          opt1.value = pIdx;
+          opt1.textContent = `P.${pObj.page} から (${pObj.chapter})`;
+          startSel.appendChild(opt1);
+
+          const opt2 = document.createElement("option");
+          opt2.value = pIdx;
+          opt2.textContent = `P.${pObj.page} まで (${pObj.chapter})`;
+          endSel.appendChild(opt2);
+        });
+        if (resetIndices) {
+          startUnitIndex = currentPageIndex;
+          endUnitIndex = currentPageIndex;
+        } else {
+          if (!filteredPages.includes(startUnitIndex)) startUnitIndex = currentPageIndex;
+          if (!filteredPages.includes(endUnitIndex) || endUnitIndex < startUnitIndex) endUnitIndex = startUnitIndex;
+        }
+      }
+
+      startSel.value = startUnitIndex;
+      endSel.value = endUnitIndex;
+      updateScopeCounterBadge();
+    }
+
+    function updateScopeCounterBadge() {
+      const badge = document.getElementById("currentScopeCounterBadge");
+      const pageObj = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+      if (scopeUnit === "sentence") {
+        const rangeStr = startUnitIndex === endUnitIndex
+          ? `第${startUnitIndex + 1}文`
+          : `第${startUnitIndex + 1}〜${endUnitIndex + 1}文`;
+        badge.textContent = `P.${pageObj.page} | ${rangeStr} (全${pageObj.sentences.length}文)`;
+      } else if (scopeUnit === "paragraph") {
+        const rangeStr = startUnitIndex === endUnitIndex
+          ? `第${startUnitIndex + 1}段落`
+          : `第${startUnitIndex + 1}〜${endUnitIndex + 1}段落`;
+        badge.textContent = `P.${pageObj.page} | ${rangeStr} (全${pageObj.paragraphs.length}段落)`;
+      } else {
+        const pStart = TSUNEHITO_BOOK_PAGES[startUnitIndex]?.page || pageObj.page;
+        const pEnd = TSUNEHITO_BOOK_PAGES[endUnitIndex]?.page || pageObj.page;
+        badge.textContent = pStart === pEnd ? `Page ${pStart} 全文` : `Page ${pStart}〜${pEnd} 全文`;
+      }
+    }
+
+    // 現在選択されている範囲（1文 / 段落 / ページ）から学習オブジェクトを自動構築
+    function rebuildActiveScopeQuestion(customTranslation = null, customSlashChunks = null) {
+      stopSpeech();
+      const pageObj = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+      let targetText = "";
+      let fullPageText = pageObj.paragraphs.join(" ");
+      let scopeTitle = "";
+      let scopeSituation = "";
+      let distractionPool = [];
+
+      if (scopeUnit === "sentence") {
+        const selectedSents = pageObj.sentences.slice(startUnitIndex, endUnitIndex + 1).map(s => s.text);
+        targetText = selectedSents.join(" ");
+        const sentLabel = startUnitIndex === endUnitIndex
+          ? `第${startUnitIndex + 1}文`
+          : `第${startUnitIndex + 1}〜${endUnitIndex + 1}文`;
+        scopeTitle = `P.${pageObj.page} [${sentLabel}] — ${pageObj.chapter}`;
+        scopeSituation = pageObj.illustration
+          ? `🎨 挿絵シーン: ${pageObj.illustration}`
+          : `${pageObj.volume} / Page ${pageObj.page} の第${startUnitIndex + 1}文目からのリスニング・音読練習です。`;
+        distractionPool = pageObj.sentences
+          .filter((_, idx) => idx < startUnitIndex || idx > endUnitIndex)
+          .map(s => s.text);
+      } else if (scopeUnit === "paragraph") {
+        const selectedParas = pageObj.paragraphs.slice(startUnitIndex, endUnitIndex + 1);
+        targetText = selectedParas.join(" ");
+        const paraLabel = startUnitIndex === endUnitIndex
+          ? `第${startUnitIndex + 1}段落`
+          : `第${startUnitIndex + 1}〜${endUnitIndex + 1}段落`;
+        scopeTitle = `P.${pageObj.page} [${paraLabel}] — ${pageObj.chapter}`;
+        scopeSituation = pageObj.illustration
+          ? `🎨 挿絵シーン: ${pageObj.illustration}`
+          : `${pageObj.volume} / Page ${pageObj.page} の段落まとめ聞き・音読練習です。`;
+        distractionPool = pageObj.paragraphs.filter((_, idx) => idx < startUnitIndex || idx > endUnitIndex);
+      } else {
+        // page unit
+        const pagesSlice = TSUNEHITO_BOOK_PAGES.slice(startUnitIndex, endUnitIndex + 1);
+        targetText = pagesSlice.map(p => p.paragraphs.join(" ")).join(" ");
+        fullPageText = targetText;
+        const pStart = pagesSlice[0].page;
+        const pEnd = pagesSlice[pagesSlice.length - 1].page;
+        scopeTitle = pStart === pEnd
+          ? `Page ${pStart} 全文 — ${pagesSlice[0].chapter}`
+          : `Page ${pStart}〜${pEnd} 全文 — ${pagesSlice[0].chapter}`;
+        scopeSituation = pagesSlice[0].illustration
+          ? `🎨 挿絵シーン: ${pagesSlice[0].illustration}`
+          : `${pagesSlice[0].volume} のページ全文通しリスニング・音読練習です。`;
+      }
+
+      const fallbackJa = customTranslation || `📖 『Tsunehito』P.${pageObj.page} (${pageObj.chapter}) の選択範囲`;
+      const slashChunks = customSlashChunks || autoSplitIntoSlashChunks(targetText, fallbackJa);
+      const dictChunks = autoExtractDictationChunks(targetText);
+
+      // クイズ用のダミー選択肢を作成
+      const otherPageSent = TSUNEHITO_BOOK_PAGES[(currentPageIndex + 1) % TSUNEHITO_BOOK_PAGES.length].sentences[0]?.text || "Tsunehito closed the notebook quietly.";
+      const wrongOpt1 = distractionPool[0] || otherPageSent;
+      const wrongOpt2 = distractionPool[1] || "Chrono opened his golden pocket watch at twelve o'clock.";
+      const correctSnippet = slashChunks[0]?.en || targetText.slice(0, 60);
+
+      const dynamicQuestion = {
+        question_id: `tsunehito_p${pageObj.page}_${scopeUnit}_${startUnitIndex}_${endUnitIndex}`,
+        category: `${pageObj.volume.split(":")[0]} • Page ${pageObj.page}`,
+        title: scopeTitle,
+        situation: scopeSituation,
+        full_script: fullPageText,
+        target_sentence: targetText,
+        translation: fallbackJa,
+        signpost_hint: `選択中の範囲は全部で ${slashChunks.length} チャンク（${targetText.trim().split(/\s+/).length} 語）あります。前から順番に意味の塊でイメージしましょう。`,
+        slash_chunks: slashChunks,
+        vocab_items: slashChunks.slice(0, 9).map((sc, idx) => ({
+          phrase: sc.en,
+          meaning: sc.ja || `チャンク ${idx + 1}`,
+          pron: sc.phonetic,
+          note: `頭出しトリガー: "${sc.head_trigger}..."`
+        })),
+        worksheet: {
+          heading: `Story Listening Check (Page ${pageObj.page})`,
+          items: [
+            {
+              id: "ws_story_1",
+              label: "Opening Chunk Check",
+              prompt: "今聞いた範囲の「最初の部分」として正しい英語はどれですか？",
+              options: [
+                correctSnippet,
+                wrongOpt1.slice(0, 70),
+                wrongOpt2.slice(0, 70)
+              ],
+              correctIndex: 0
+            },
+            {
+              id: "ws_story_2",
+              label: "Ending / Key Phrase Check",
+              prompt: "今聞いた範囲の「最後の部分」に含まれていた表現はどれですか？",
+              options: [
+                "They decided to cancel the school trip tomorrow.",
+                slashChunks[slashChunks.length - 1]?.en || targetText.slice(-50),
+                "The library was completely empty on Sunday morning."
+              ],
+              correctIndex: 1
+            }
+          ]
+        },
+        chunks: dictChunks
+      };
+
+      QUESTIONS_DATA = [dynamicQuestion];
+      currentQuestionIndex = 0;
+
+      // プレビュー欄と右カラムのページ内スクリプト一覧を更新
+      document.getElementById("currentTargetTextPreview").textContent = targetText;
+      const wc = targetText.trim().split(/\s+/).filter(Boolean).length;
+      document.getElementById("wordCountBadge").textContent = `${wc} words / ${slashChunks.length} chunks`;
+
+      renderInteractivePageScriptList();
+      resetQuestionMetrics();
+      renderCurrentQuestion();
+    }
+
+    // 右カラム：ページ内の英文一覧を描画し、クリックでその1文/段落を選択できるようにする
+    function renderInteractivePageScriptList() {
+      const pageObj = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+      const badge = document.getElementById("pageViewerBadge");
+      const listCont = document.getElementById("pageInteractiveScriptList");
+      if (!listCont || !pageObj) return;
+
+      badge.textContent = `Page ${pageObj.page}`;
+      listCont.innerHTML = "";
+
+      if (scopeUnit === "sentence") {
+        pageObj.sentences.forEach((sObj, sIdx) => {
+          const isSelected = sIdx >= startUnitIndex && sIdx <= endUnitIndex;
+          const item = document.createElement("div");
+          item.className = isSelected
+            ? "p-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50/90 text-indigo-950 font-bold cursor-pointer transition"
+            : "p-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 text-slate-700 cursor-pointer transition";
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-[10px] mb-0.5">
+              <span class="${isSelected ? 'text-indigo-700 font-bold' : 'text-slate-400'}">第${sIdx + 1}文 (段落${sObj.paragraphIndex + 1})</span>
+              ${isSelected ? '<span class="px-1.5 py-0.2 rounded bg-indigo-600 text-white font-bold">選択中</span>' : '<span class="text-slate-400">クリックで選択</span>'}
+            </div>
+            <div class="leading-relaxed">${sObj.text}</div>
+          `;
+          item.addEventListener("click", () => {
+            startUnitIndex = sIdx;
+            endUnitIndex = sIdx;
+            populatePageAndRangeSelects(false);
+            rebuildActiveScopeQuestion();
+          });
+          listCont.appendChild(item);
+        });
+      } else if (scopeUnit === "paragraph") {
+        pageObj.paragraphs.forEach((pText, pIdx) => {
+          const isSelected = pIdx >= startUnitIndex && pIdx <= endUnitIndex;
+          const item = document.createElement("div");
+          item.className = isSelected
+            ? "p-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50/90 text-indigo-950 font-bold cursor-pointer transition"
+            : "p-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-slate-50 text-slate-700 cursor-pointer transition";
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-[10px] mb-0.5">
+              <span class="${isSelected ? 'text-indigo-700 font-bold' : 'text-slate-400'}">第${pIdx + 1}段落</span>
+              ${isSelected ? '<span class="px-1.5 py-0.2 rounded bg-indigo-600 text-white font-bold">選択中</span>' : '<span class="text-slate-400">クリックで選択</span>'}
+            </div>
+            <div class="leading-relaxed">${pText}</div>
+          `;
+          item.addEventListener("click", () => {
+            startUnitIndex = pIdx;
+            endUnitIndex = pIdx;
+            populatePageAndRangeSelects(false);
+            rebuildActiveScopeQuestion();
+          });
+          listCont.appendChild(item);
+        });
+      } else {
+        // ページ単位モード時は現在ページの全段落を表示
+        pageObj.paragraphs.forEach((pText, pIdx) => {
+          const item = document.createElement("div");
+          item.className = "p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 text-slate-800";
+          item.innerHTML = `<span class="text-[10px] font-bold text-indigo-600 block mb-0.5">第${pIdx + 1}段落</span><div>${pText}</div>`;
+          listCont.appendChild(item);
+        });
+      }
+    }
+
+    // 前へ / 次へ ボタンで1文・1段落・1ページずつ進める関数
+    function stepScopeUnit(delta) {
+      const filteredPages = getFilteredPageIndices();
+      const pageObj = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+
+      if (scopeUnit === "sentence") {
+        const nextIdx = startUnitIndex + delta;
+        if (nextIdx >= 0 && nextIdx < pageObj.sentences.length) {
+          startUnitIndex = nextIdx;
+          endUnitIndex = nextIdx;
+        } else if (delta > 0) {
+          const pos = filteredPages.indexOf(currentPageIndex);
+          if (pos !== -1 && pos + 1 < filteredPages.length) {
+            currentPageIndex = filteredPages[pos + 1];
+            startUnitIndex = 0;
+            endUnitIndex = 0;
+          }
+        } else if (delta < 0) {
+          const pos = filteredPages.indexOf(currentPageIndex);
+          if (pos > 0) {
+            currentPageIndex = filteredPages[pos - 1];
+            const prevPage = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+            startUnitIndex = prevPage.sentences.length - 1;
+            endUnitIndex = startUnitIndex;
+          }
+        }
+      } else if (scopeUnit === "paragraph") {
+        const nextIdx = startUnitIndex + delta;
+        if (nextIdx >= 0 && nextIdx < pageObj.paragraphs.length) {
+          startUnitIndex = nextIdx;
+          endUnitIndex = nextIdx;
+        } else if (delta > 0) {
+          const pos = filteredPages.indexOf(currentPageIndex);
+          if (pos !== -1 && pos + 1 < filteredPages.length) {
+            currentPageIndex = filteredPages[pos + 1];
+            startUnitIndex = 0;
+            endUnitIndex = 0;
+          }
+        } else if (delta < 0) {
+          const pos = filteredPages.indexOf(currentPageIndex);
+          if (pos > 0) {
+            currentPageIndex = filteredPages[pos - 1];
+            const prevPage = TSUNEHITO_BOOK_PAGES[currentPageIndex];
+            startUnitIndex = prevPage.paragraphs.length - 1;
+            endUnitIndex = startUnitIndex;
+          }
+        }
+      } else {
+        // page mode
+        const pos = filteredPages.indexOf(currentPageIndex);
+        const nextPos = pos + delta;
+        if (nextPos >= 0 && nextPos < filteredPages.length) {
+          currentPageIndex = filteredPages[nextPos];
+          startUnitIndex = currentPageIndex;
+          endUnitIndex = currentPageIndex;
+        }
+      }
+
+      populatePageAndRangeSelects(false);
+      rebuildActiveScopeQuestion();
+    }
+
+    function initQuestionSelector() {
+      // 互換用
+      populatePageAndRangeSelects(false);
+    }
+
+    /********************************************************************
+     * 3.5 チャンク分割・音声変化抽出エンジン
+     ********************************************************************/
+    // 小学生でもリテンションしやすいよう、意味の切れ目（3〜6語程度）でチャンク分割する関数
+    function autoSplitIntoSlashChunks(rawInput, fallbackJa = "") {
+      let rawSegments = [];
+      if (rawInput.includes("/")) {
+        rawSegments = rawInput.split("/").map(s => s.trim()).filter(Boolean);
+      } else {
+        // まず文単位に分け、各文の中をさらに接続詞・句読点・語数で3〜6語のチャンクに分割
+        const sentences = splitParagraphIntoSentences(rawInput);
+        const breakWords = new Set([
+          "before", "after", "because", "if", "when", "while", "though", "although",
+          "unless", "so", "but", "and", "that", "which", "who", "where", "as", "until",
+          "inside", "outside", "beneath", "beyond", "through", "toward", "without", "with"
+        ]);
+
+        sentences.forEach(sent => {
+          const words = sent.trim().split(/\s+/).filter(Boolean);
+          let current = [];
+          words.forEach((w, idx) => {
+            const cleanLower = w.toLowerCase().replace(/[.,!?;:"'—]/g, "");
+            if (current.length >= 3 && breakWords.has(cleanLower) && idx < words.length - 1) {
+              rawSegments.push(current.join(" "));
+              current = [w];
+            } else {
+              current.push(w);
+              const endsWithClausePunct = /[,;:—]$/.test(w);
+              if ((endsWithClausePunct && current.length >= 2 && idx < words.length - 1) ||
+                  (current.length >= 6 && idx < words.length - 2)) {
+                rawSegments.push(current.join(" "));
+                current = [];
+              }
+            }
+          });
+          if (current.length > 0) rawSegments.push(current.join(" "));
+        });
+      }
+
+      return rawSegments.map((seg, i) => {
+        const segWords = seg.trim().split(/\s+/);
+        const headCount = segWords.length <= 3 ? 1 : 2;
+        const headTrigger = segWords.slice(0, headCount).join(" ").replace(/[.,!?;:"]/g, "");
+        return {
+          en: seg,
+          head_trigger: headTrigger || segWords[0] || "",
+          ja: i === 0 && fallbackJa && !fallbackJa.startsWith("📖") ? fallbackJa : `Chunk ${i + 1}`,
+          phonetic: autoEstimatePhoneticHint(seg)
+        };
+      });
+    }
+
+    function autoEstimatePhoneticHint(text) {
+      const replacements = [
+        [/\bwould have\b/gi, "ウダヴ (would've)"],
+        [/\bshould have\b/gi, "シュダヴ (should've)"],
+        [/\bcould have\b/gi, "クダヴ (could've)"],
+        [/\bmust have\b/gi, "マスタヴ (must've)"],
+        [/\bhave to\b/gi, "ハフタ (have to)"],
+        [/\bhas to\b/gi, "ハスタ (has to)"],
+        [/\bhad to\b/gi, "ハッタ (had to)"],
+        [/\bgoing to\b/gi, "ガナ (going to)"],
+        [/\bwant to\b/gi, "ワナ (want to)"],
+        [/\bgot to\b/gi, "ガッタ (got to)"],
+        [/\bcheck it out\b/gi, "チェキラウ"],
+        [/\bpicked up\b/gi, "ピクタップ (picked up)"],
+        [/\blooked up\b/gi, "ルクタップ (looked up)"],
+        [/\blooked at\b/gi, "ルクタット (looked at)"],
+        [/\bturned to\b/gi, "ターンドゥトゥ"],
+        [/\bin the\b/gi, "インザ"],
+        [/\bof the\b/gi, "オヴザ"],
+        [/\bat the\b/gi, "アッザ"],
+        [/\bon the\b/gi, "オンザ"],
+        [/\bto the\b/gi, "トゥザ"],
+        [/\bfor a\b/gi, "フォラ (for a)"],
+        [/\bin a\b/gi, "イナ (in a)"],
+        [/\bwith a\b/gi, "ウィザ (with a)"],
+        [/\bas though\b/gi, "アズゾウ"]
+      ];
+      let matchedNotes = [];
+      replacements.forEach(([regex, kana]) => {
+        if (regex.test(text)) matchedNotes.push(kana);
+      });
+      return matchedNotes.length > 0
+        ? `音の繋がり：${matchedNotes.join(" / ")}`
+        : `強く読む単語（名詞・動詞）をはっきり発音しよう`;
+    }
+
+    function autoExtractDictationChunks(cleanSentence) {
+      const tokens = tokenizeSentence(cleanSentence);
+      const lowerWords = tokens.map(t => t.lower);
+      const chunks = [];
+
+      const patterns = [
+        { pair: ["should", "have"], phonetic: "シュダヴ", phenom: ["weak_form", "linking"], wrong: ["should", "of"] },
+        { pair: ["would", "have"], phonetic: "ウダヴ", phenom: ["weak_form", "linking"], wrong: ["would", "of"] },
+        { pair: ["could", "have"], phonetic: "クダヴ", phenom: ["weak_form", "linking"], wrong: ["could", "of"] },
+        { pair: ["must", "have"], phonetic: "マスタヴ", phenom: ["weak_form", "linking"], wrong: ["must", "of"] },
+        { pair: ["have", "to"], phonetic: "ハフタ", phenom: ["assimilation", "weak_form"], wrong: ["half", "to"] },
+        { pair: ["going", "to"], phonetic: "ガナ", phenom: ["reduction", "weak_form"], wrong: ["go", "to"] },
+        { pair: ["picked", "up"], phonetic: "ピクタップ", phenom: ["linking", "flapping"], wrong: ["pick", "up"] },
+        { pair: ["looked", "up"], phonetic: "ルクタップ", phenom: ["linking", "elision"], wrong: ["look", "up"] },
+        { pair: ["looked", "at"], phonetic: "ルクタット", phenom: ["linking", "weak_form"], wrong: ["look", "at"] },
+        { pair: ["in", "the"], phonetic: "インザ", phenom: ["linking", "weak_form"], wrong: ["in", "a"] },
+        { pair: ["of", "the"], phonetic: "オヴザ", phenom: ["weak_form", "linking"], wrong: ["of", "a"] },
+        { pair: ["at", "the"], phonetic: "アッザ", phenom: ["elision", "weak_form"], wrong: ["at", "a"] },
+        { pair: ["from", "the"], phonetic: "フロムザ", phenom: ["weak_form", "linking"], wrong: ["for", "the"] },
+        { pair: ["into", "the"], phonetic: "イントゥザ", phenom: ["weak_form", "linking"], wrong: ["in", "the"] }
+      ];
+
+      patterns.forEach((pat, idx) => {
+        for (let i = 0; i < lowerWords.length - 1; i++) {
+          if (chunks.length >= 4) break;
+          if (lowerWords[i] === pat.pair[0] && lowerWords[i + 1] === pat.pair[1]) {
+            chunks.push({
+              id: `auto_c_${idx}_${i}`,
+              word_indices: [i, i + 1],
+              tokens: [tokens[i].clean, tokens[i + 1].clean],
+              phonetic_actual: pat.phonetic,
+              phenomena: pat.phenom,
+              common_mishearings: [pat.wrong.join(" ")],
+              sample_wrong_input: pat.wrong,
+              hint: `原因候補：${pat.pair.join(" ")} が繋がって「${pat.phonetic}」のように聞こえる箇所です。`
+            });
+          }
+        }
+      });
+
+      if (chunks.length === 0 && tokens.length >= 2) {
+        const idx1 = Math.min(1, tokens.length - 2);
+        const idx2 = idx1 + 1;
+        chunks.push({
+          id: "auto_c_default",
+          word_indices: [idx1, idx2],
+          tokens: [tokens[idx1].clean, tokens[idx2].clean],
+          phonetic_actual: `${tokens[idx1].clean} ${tokens[idx2].clean}`,
+          phenomena: ["linking", "weak_form"],
+          common_mishearings: [tokens[idx1].clean],
+          sample_wrong_input: [tokens[idx1].clean, ""],
+          hint: "前の単語の終わりと次の単語の頭がなめらかに繋がる箇所です。"
+        });
+      }
+      return chunks;
+    }
+
+    function resetQuestionMetrics() {
+      metrics.playCount = 0;
+      metrics.hintCount = 0;
+      metrics.overlap08Count = 0;
+      metrics.overlap10Count = 0;
+      metrics.pureReadCount = 0;
+      metrics.reciteCount = 0;
+      is10xStable = false;
+      playbackSpeed = 1.0;
+      updateSpeedButtonsUI();
+      updateTelemetryUI();
+    }
+
+    function initSpeechSynthesisVoices() {
+      if (!("speechSynthesis" in window)) return;
+      const populateVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("en"));
+        availableVoices = enVoices;
+        const voiceSelect = document.getElementById("voiceSelect");
+        voiceSelect.innerHTML = '<option value="">標準の英語音声 (自動)</option>';
+        enVoices.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v.voiceURI;
+          opt.textContent = `${v.name} (${v.lang})`;
+          voiceSelect.appendChild(opt);
+        });
+      };
+      populateVoices();
+      window.speechSynthesis.onvoiceschanged = populateVoices;
+      document.getElementById("voiceSelect").addEventListener("change", (e) => {
+        selectedVoiceURI = e.target.value;
+      });
+    }
+
+    /********************************************************************
+     * 4. チャンク1秒後リフレイン（頭出しトリガー＆段階的エコー消失）＋ 純粋音読ガイド
+     ********************************************************************/
+    function clearAllStreamTimers() {
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers = [];
+    }
+
+    function waitMs(ms, myToken) {
+      return new Promise(resolve => {
+        const id = setTimeout(() => {
+          resolve(myToken === streamSessionToken);
+        }, ms);
+        activeTimers.push(id);
+      });
+    }
+
+    function applySelectedVoice(utter) {
+      if (selectedVoiceURI) {
+        const matched = availableVoices.find(v => v.voiceURI === selectedVoiceURI);
+        if (matched) utter.voice = matched;
+      } else if (availableVoices.length > 0) {
+        const preferred = availableVoices.find(v => v.lang === "en-US" || v.lang === "en-GB") || availableVoices[0];
+        utter.voice = preferred;
+      }
+    }
+
+    function stopSpeech() {
+      streamSessionToken++;
+      clearAllStreamTimers();
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      const badge = document.getElementById("audioStatusBadge");
+      if (badge) {
+        badge.classList.add("hidden");
+        badge.classList.remove("inline-flex");
+      }
+      const pureBadge = document.getElementById("pureReadingTimerBadge");
+      if (pureBadge) pureBadge.classList.add("hidden");
+      document.querySelectorAll(".refrain-chunk-card").forEach(el => {
+        el.classList.remove("model-speaking", "echo-speaking");
+      });
+    }
+
+    function speakText(text, customRate = null, countAsPlay = true) {
+      if (!("speechSynthesis" in window)) return;
+      stopSpeech();
+
+      if (countAsPlay) {
+        metrics.playCount++;
+        updateTelemetryUI();
+      }
+
+      const rateToUse = customRate !== null ? customRate : playbackSpeed;
+      const badge = document.getElementById("audioStatusBadge");
+      const statusText = document.getElementById("audioStatusText");
+      badge.classList.remove("hidden");
+      badge.classList.add("inline-flex");
+      statusText.textContent = `${rateToUse.toFixed(1)}x 再生中...`;
+
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-US";
+      utter.rate = rateToUse;
+      applySelectedVoice(utter);
+
+      utter.onend = () => {
+        badge.classList.add("hidden");
+        badge.classList.remove("inline-flex");
+      };
+      utter.onerror = () => {
+        badge.classList.add("hidden");
+        badge.classList.remove("inline-flex");
+      };
+
+      window.speechSynthesis.speak(utter);
+    }
+
+    function speakUtterancePromise(text, rate = 1.0, volume = 1.0, pitch = 1.0, myToken) {
+      return new Promise(resolve => {
+        if (!("speechSynthesis" in window) || myToken !== streamSessionToken) {
+          resolve(false);
+          return;
+        }
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = "en-US";
+        utter.rate = rate;
+        utter.volume = volume;
+        utter.pitch = pitch;
+        applySelectedVoice(utter);
+        utter.onend = () => resolve(myToken === streamSessionToken);
+        utter.onerror = () => resolve(false);
+        window.speechSynthesis.speak(utter);
+      });
+    }
+
+    function playSoftCueBeep(freq = 580, durationSec = 0.1) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationSec);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + durationSec + 0.01);
+      } catch (e) {}
+    }
+
+    // Step 3: 純粋な音読（無音ペースメーカー）
+    async function runPureReadingPacer() {
+      stopSpeech();
+      const myToken = ++streamSessionToken;
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      const pureBadge = document.getElementById("pureReadingTimerBadge");
+      pureBadge.classList.remove("hidden");
+
+      const chunkEls = document.querySelectorAll("#slashScriptContainer .slash-chunk");
+      chunkEls.forEach(el => el.classList.remove("active-reading"));
+
+      playSoftCueBeep(520, 0.08);
+      pureBadge.textContent = "🔇 純粋な音読中：光ったチャンクを自分の声だけでスラスラ読み上げてください";
+
+      for (let i = 0; i < q.slash_chunks.length; i++) {
+        if (myToken !== streamSessionToken) return;
+        chunkEls.forEach(el => el.classList.remove("active-reading"));
+        if (chunkEls[i]) chunkEls[i].classList.add("active-reading");
+
+        const wordCount = q.slash_chunks[i].en.trim().split(/\s+/).length;
+        const readDurationMs = Math.max(1500, wordCount * 380 + 450);
+        const ok = await waitMs(readDurationMs, myToken);
+        if (!ok) return;
+      }
+
+      chunkEls.forEach(el => el.classList.remove("active-reading"));
+      playSoftCueBeep(740, 0.12);
+      pureBadge.textContent = "✨ 純粋音読完了！ お手本なしでも自分の口でリズムを作れましたか？";
+    }
+
+    // Step 4: チャンクカードの描画
+    function renderRefrainChunksGrid(blindMode = false) {
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      const grid = document.getElementById("refrainChunksGrid");
+      grid.innerHTML = "";
+
+      q.slash_chunks.forEach((sc, idx) => {
+        const card = document.createElement("div");
+        card.id = `refrainCard_${idx}`;
+        card.className = "refrain-chunk-card rounded-xl p-4 cursor-pointer flex flex-col justify-between space-y-2";
+
+        const restPart = sc.en.slice(sc.head_trigger.length).trim();
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-bold text-indigo-400 uppercase tracking-wider">Chunk ${idx + 1}</span>
+            <span id="refrainCardStatus_${idx}" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-semibold">クリックで単体練習</span>
+          </div>
+          <div class="space-y-1">
+            <div class="text-base sm:text-lg font-bold text-white leading-snug">
+              ${blindMode
+                ? `<span class="text-amber-300">${sc.head_trigger}</span> <span class="text-slate-500 tracking-widest">● ● ● ●</span>`
+                : `<span class="underline decoration-amber-400/70 decoration-2 underline-offset-4">${sc.head_trigger}</span> <span>${restPart}</span>`
+              }
+            </div>
+            <div class="text-xs font-bold text-amber-300">${sc.phonetic}</div>
+          </div>
+          <div class="text-xs text-slate-400 pt-1.5 border-t border-slate-800/80 flex items-center justify-between">
+            <span class="truncate max-w-[180px]">${sc.ja}</span>
+            <span class="text-[10px] text-amber-400/90 font-semibold shrink-0">頭出し: "${sc.head_trigger}..."</span>
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          runSingleChunkRefrain(idx);
+        });
+
+        grid.appendChild(card);
+      });
+    }
+
+    async function runSingleChunkRefrain(chunkIdx) {
+      stopSpeech();
+      const myToken = ++streamSessionToken;
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      const sc = q.slash_chunks[chunkIdx];
+      if (!sc) return;
+
+      const roundToSimulate = step4RefrainMode === "headstart" ? 2 : 1;
+      await executeChunkWithRefrain(sc, chunkIdx, roundToSimulate, myToken);
+    }
+
+    async function executeChunkWithRefrain(sc, idx, roundNum, myToken) {
+      const card = document.getElementById(`refrainCard_${idx}`);
+      const cardBadge = document.getElementById(`refrainCardStatus_${idx}`);
+      const pill = document.getElementById("livePhasePill");
+      const targetText = document.getElementById("liveRefrainTargetText");
+      const subHint = document.getElementById("liveRefrainSubHint");
+
+      document.querySelectorAll(".refrain-chunk-card").forEach(el => {
+        el.classList.remove("model-speaking", "echo-speaking");
+      });
+
+      if (card) {
+        card.classList.add("model-speaking");
+        card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      if (cardBadge) {
+        cardBadge.textContent = "🔊 お手本再生中";
+        cardBadge.className = "px-2 py-0.5 rounded bg-indigo-600 text-white font-bold";
+      }
+      pill.textContent = "🔊 お手本入力";
+      pill.className = "text-[11px] font-bold px-2.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 shrink-0";
+      targetText.textContent = `${sc.en}`;
+      subHint.textContent = "まず耳でチャンク全体の音の塊をキャッチします...";
+
+      const okModel = await speakUtterancePromise(sc.en, playbackSpeed, 1.0, 1.0, myToken);
+      if (!okModel) return false;
+
+      if (cardBadge) {
+        cardBadge.textContent = "⏳ 1秒保持...";
+        cardBadge.className = "px-2 py-0.5 rounded bg-slate-700 text-amber-200 font-bold";
+      }
+      const okWait = await waitMs(850, myToken);
+      if (!okWait) return false;
+
+      if (card) {
+        card.classList.remove("model-speaking");
+        card.classList.add("echo-speaking");
+      }
+
+      pill.textContent = "🧠 1秒後リフレイン";
+      pill.className = "text-[11px] font-bold px-2.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-400/50 shrink-0";
+
+      const wordCount = sc.en.trim().split(/\s+/).length;
+      const silentHoldMs = Math.max(1700, wordCount * 360);
+
+      if (step4RefrainMode === "unison") {
+        if (cardBadge) {
+          cardBadge.textContent = "⚡ 同時ユニゾン内言!";
+          cardBadge.className = "px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-bold";
+        }
+        targetText.innerHTML = `<span class="text-amber-300">⚡ 音声と全く同時に「${sc.en}」を頭の中でユニゾン発火！</span>`;
+        subHint.textContent = "タイムラグゼロで頭の中の声を重ねます";
+        const okUni = await speakUtterancePromise(sc.en, playbackSpeed, 0.75, 1.0, myToken);
+        if (!okUni) return false;
+      } else if (roundNum === 1) {
+        if (cardBadge) {
+          cardBadge.textContent = "🔉 R1: フルエコー";
+          cardBadge.className = "px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-bold";
+        }
+        targetText.innerHTML = `<span class="text-amber-300">🔉 フルエコー: "${sc.en}"</span>`;
+        subHint.textContent = "エコーと一緒に、頭の中の声（Inner Speech）を重ねてください";
+        const okR1 = await speakUtterancePromise(sc.en, playbackSpeed * 0.98, 0.55, 0.94, myToken);
+        if (!okR1) return false;
+      } else if (roundNum === 2) {
+        if (step4RefrainMode === "headstart") {
+          if (cardBadge) {
+            cardBadge.textContent = `⚡ R2: 頭出し "${sc.head_trigger}..."`;
+            cardBadge.className = "px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-bold";
+          }
+          const restWords = sc.en.slice(sc.head_trigger.length).trim();
+          targetText.innerHTML = `<span class="text-amber-300">⚡ 頭出し: "${sc.head_trigger}..."</span> ➔ <span class="underline decoration-amber-400">続きの "${restWords}" を頭の中で言おう！</span>`;
+          subHint.textContent = `頭出しに続けて、残りを頭の中で最後まで鳴らし切ってください！`;
+
+          const okHead = await speakUtterancePromise(sc.head_trigger, playbackSpeed, 0.65, 0.95, myToken);
+          if (!okHead) return false;
+          playSoftCueBeep(660, 0.07);
+          const okRest = await waitMs(Math.max(1300, silentHoldMs - 500), myToken);
+          if (!okRest) return false;
+        } else {
+          if (cardBadge) {
+            cardBadge.textContent = "👻 R2: 極小ゴーストエコー";
+            cardBadge.className = "px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-bold";
+          }
+          targetText.innerHTML = `<span class="text-amber-300">👻 かすかなエコー: "${sc.en}" （自分の内言で補おう）</span>`;
+          subHint.textContent = "エコーが消えかかっています。自分の頭の中の声をメインにして鳴らします";
+          const okGhost = await speakUtterancePromise(sc.en, playbackSpeed * 0.98, 0.22, 0.94, myToken);
+          if (!okGhost) return false;
+        }
+      } else {
+        if (cardBadge) {
+          cardBadge.textContent = "🧠 R3: 無音リテンション!";
+          cardBadge.className = "px-2 py-0.5 rounded bg-indigo-500 text-white font-bold";
+        }
+        playSoftCueBeep(720, 0.1);
+        targetText.innerHTML = `<span class="text-amber-300">🧠 無音スペース：今、頭の中で「${sc.en}」と全文リテンション！</span>`;
+        subHint.textContent = "エコーは鳴りません。耳に残った残響だけでチャンクを頭の中で再生しよう";
+        const okR3 = await waitMs(silentHoldMs, myToken);
+        if (!okR3) return false;
+      }
+
+      if (card) card.classList.remove("echo-speaking");
+      if (cardBadge) {
+        cardBadge.textContent = "✓ 完了";
+        cardBadge.className = "px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 font-semibold";
+      }
+
+      return await waitMs(450, myToken);
+    }
+
+    async function runRefrainTrainingRounds(roundsToRun = [1, 2, 3]) {
+      stopSpeech();
+      const myToken = ++streamSessionToken;
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+
+      metrics.playCount++;
+      updateTelemetryUI();
+
+      const statusEl = document.getElementById("refrainStageStatus");
+      const roundBadge = document.getElementById("refrainRoundBadge");
+
+      for (const rNum of roundsToRun) {
+        if (myToken !== streamSessionToken) return;
+
+        renderRefrainChunksGrid(rNum === 3);
+
+        roundBadge.textContent = `Round ${rNum} / 3`;
+        roundBadge.className =
+          rNum === 3
+            ? "px-2.5 py-0.5 rounded-full bg-indigo-500 text-white font-bold text-xs"
+            : "px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-bold text-xs";
+
+        if (rNum === 1) {
+          statusEl.textContent = "Round 1/3 【フルエコー】：チャンクの1秒後にフルエコーが鳴ります。音の塊をそのまま頭にコピーしよう";
+        } else if (rNum === 2) {
+          statusEl.textContent =
+            step4RefrainMode === "headstart"
+              ? "Round 2/3 【⚡頭出しトリガー】：1秒後に最初の1〜2語だけ鳴って止まります！続きを頭の中で言ってみよう"
+              : "Round 2/3 【👻極小ゴースト】：1秒後のエコーが極小になります。自分の頭の中の声で補いましょう";
+        } else {
+          statusEl.textContent = "Round 3/3 【🧠無音リテンション】：1秒後に合図だけ鳴ります。チャンク丸ごと頭の中で再現しよう！";
+        }
+
+        for (let cIdx = 0; cIdx < q.slash_chunks.length; cIdx++) {
+          if (myToken !== streamSessionToken) return;
+          const ok = await executeChunkWithRefrain(q.slash_chunks[cIdx], cIdx, rNum, myToken);
+          if (!ok) return;
+        }
+
+        if (roundsToRun.length > 1 && rNum !== roundsToRun[roundsToRun.length - 1]) {
+          statusEl.textContent = `Round ${rNum} 完了 ➔ 次のラウンドへ進みます...`;
+          const okNext = await waitMs(800, myToken);
+          if (!okNext) return;
+        }
+      }
+
+      if (myToken === streamSessionToken) {
+        renderRefrainChunksGrid(false);
+        statusEl.textContent = "✨ リフレイン＆リテンション完了！ 最後に選択中の範囲を通しで流すので、頭の中で同時シンクロさせて仕上げましょう...";
+        await waitMs(700, myToken);
+        if (myToken === streamSessionToken) {
+          document.getElementById("livePhasePill").textContent = "🔥 全文仕上げ";
+          document.getElementById("liveRefrainTargetText").textContent = q.target_sentence;
+          document.getElementById("liveRefrainSubHint").textContent = `${q.translation}`;
+          await speakUtterancePromise(q.target_sentence, playbackSpeed, 1.0, 1.0, myToken);
+        }
+      }
+    }
+
+    /********************************************************************
+     * 5. 5つのステップ画面のレンダリング
+     ********************************************************************/
+    function renderCurrentQuestion() {
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      document.getElementById("questionCategoryBadge").textContent = q.category;
+      document.getElementById("questionTitle").textContent = q.title;
+      document.getElementById("questionSituation").textContent = q.situation;
+
+      // Step 5: Worksheet
+      document.getElementById("step5HintBox").classList.add("hidden");
+      document.getElementById("step5HintBox").textContent = q.signpost_hint;
+      const wsContainer = document.getElementById("worksheetContainer");
+      wsContainer.innerHTML = `
+        <div class="border-b border-slate-200 pb-2 mb-3 flex items-center justify-between">
+          <span class="font-bold text-sm text-slate-800">📋 ${q.worksheet.heading}</span>
+          <span class="text-xs text-slate-500">音声を聞きながら選択</span>
+        </div>
+      `;
+      q.worksheet.items.forEach((item, idx) => {
+        const block = document.createElement("div");
+        block.className = "bg-white p-3.5 rounded-xl border border-slate-200 space-y-2";
+        block.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-indigo-600 uppercase">${item.label}</span>
+            <span id="wsBadge_${item.id}" class="text-xs font-bold"></span>
+          </div>
+          <p class="text-sm font-semibold text-slate-800">${idx + 1}. ${item.prompt}</p>
+          <div class="grid grid-cols-1 gap-2 pt-1">
+            ${item.options.map((optText, optIdx) => `
+              <label class="flex items-center space-x-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 transition">
+                <input type="radio" name="ws_${item.id}" value="${optIdx}" class="text-indigo-600 focus:ring-indigo-500">
+                <span>${optText}</span>
+              </label>
+            `).join("")}
+          </div>
+        `;
+        wsContainer.appendChild(block);
+      });
+      document.getElementById("worksheetResultMsg").innerHTML = "";
+
+      // Step 1: Vocab & Chunks
+      const vocabContainer = document.getElementById("vocabChunksList");
+      vocabContainer.innerHTML = "";
+      q.vocab_items.forEach(v => {
+        const vCard = document.createElement("div");
+        vCard.className = "p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5 flex flex-col justify-between";
+        vCard.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-sm text-indigo-950">${v.phrase}</span>
+              <button data-phrase="${v.phrase.replace(/"/g, '&quot;')}" class="vocab-play-btn text-xs font-bold text-indigo-600 hover:text-indigo-800 shrink-0">🔊 発音</button>
+            </div>
+            <div class="text-xs font-semibold text-slate-700 mt-0.5">${v.meaning}</div>
+            <div class="text-[11px] text-indigo-700 font-medium">${v.pron}</div>
+          </div>
+          <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-200/80">${v.note}</div>
+        `;
+        vocabContainer.appendChild(vCard);
+      });
+      vocabContainer.querySelectorAll(".vocab-play-btn").forEach(btn => {
+        btn.addEventListener("click", () => speakText(btn.dataset.phrase, 0.9, false));
+      });
+
+      // Step 2: Dictation Inputs
+      renderDictationInputs();
+      document.getElementById("diagnosisResultSection").classList.add("hidden");
+
+      // Step 3: Slash Reading & Recitation Chunks
+      isRecitationMasked = false;
+      const maskBtn = document.getElementById("toggleRecitationMaskBtn");
+      if (maskBtn) maskBtn.textContent = "🙈 暗唱モード：英語を隠す (OFF)";
+
+      const slashContainer = document.getElementById("slashScriptContainer");
+      slashContainer.innerHTML = "";
+      q.slash_chunks.forEach((sc, idx) => {
+        const span = document.createElement("span");
+        span.className = "slash-chunk cursor-pointer";
+        span.innerHTML = `
+          <span class="en-text block text-base font-bold text-slate-900">${sc.en}</span>
+          <span class="en-text block text-[11px] font-medium text-indigo-600">${sc.phonetic}</span>
+          <span class="block text-[11px] font-normal text-slate-600">${sc.ja}</span>
+        `;
+        span.addEventListener("click", () => {
+          document.querySelectorAll(".slash-chunk").forEach(el => el.classList.remove("active-reading"));
+          span.classList.add("active-reading");
+          speakText(sc.en, 0.85, true);
+        });
+        slashContainer.appendChild(span);
+        if (idx < q.slash_chunks.length - 1) {
+          const slashMark = document.createElement("span");
+          slashMark.className = "text-slate-400 font-bold text-xl mx-1 select-none";
+          slashMark.textContent = "/";
+          slashContainer.appendChild(slashMark);
+        }
+      });
+      document.getElementById("slashTranslationText").textContent = `${q.translation}`;
+      document.getElementById("overlap08Count").textContent = "0/3回";
+      document.getElementById("overlap10Count").textContent = "0/3回";
+      document.getElementById("pureReadCountBadge").textContent = "0/3回";
+      document.getElementById("reciteCountBadge").textContent = "0/3回";
+
+      // Step 4: Chunk Refrain & Head-Start Cards
+      renderRefrainChunksGrid(false);
+      document.getElementById("liveRefrainTargetText").textContent = q.target_sentence;
+      document.getElementById("masteryFeedbackMsg").textContent = "";
+      document.getElementById("nextDayResultBox").classList.add("hidden");
+    }
+
+    function tokenizeSentence(sentence) {
+      return sentence
+        .trim()
+        .split(/\s+/)
+        .map(raw => {
+          const clean = raw.replace(/[.,!?;:"'—]/g, "");
+          const punct = raw.slice(clean.length);
+          return { raw, clean, lower: clean.toLowerCase(), punct };
+        });
+    }
+
+    function renderDictationInputs() {
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      const tokens = tokenizeSentence(q.target_sentence);
+      const chunkMap = {};
+      q.chunks.forEach(chunk => {
+        chunk.word_indices.forEach(wIdx => {
+          chunkMap[wIdx] = chunk;
+        });
+      });
+
+      const clozeContainer = document.getElementById("clozeInputContainer");
+      clozeContainer.innerHTML = "";
+
+      tokens.forEach((tok, idx) => {
+        if (chunkMap[idx]) {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.dataset.wordIndex = idx;
+          input.placeholder = "____";
+          input.className = "cloze-word-input mx-1 px-2.5 py-1 w-24 sm:w-28 text-center rounded-lg border-2 border-indigo-300 bg-white focus:border-indigo-600 focus:outline-none text-indigo-950 font-bold text-sm shadow-inner";
+          clozeContainer.appendChild(input);
+          if (tok.punct) {
+            const pSpan = document.createElement("span");
+            pSpan.textContent = tok.punct + " ";
+            clozeContainer.appendChild(pSpan);
+          }
+        } else {
+          const span = document.createElement("span");
+          span.textContent = tok.raw + " ";
+          span.className = "text-slate-700";
+          clozeContainer.appendChild(span);
+        }
+      });
+
+      document.getElementById("fullDictationTextarea").value = "";
+    }
+
+    /********************************************************************
+     * 6. Step 2: 差分抽出と4択仮説検証
+     ********************************************************************/
+    function gradeDictation() {
+      const q = QUESTIONS_DATA[currentQuestionIndex];
+      const targetTokens = tokenizeSentence(q.target_sentence);
+      let userWordsByIndex = [];
+
+      if (dictationMode === "cloze") {
+        userWordsByIndex = targetTokens.map(t => t.lower);
+        const inputs = document.querySelectorAll(".cloze-word-input");
+        inputs.forEach(inp => {
+          const idx = parseInt(inp.dataset.wordIndex, 10);
+          const val = inp.value.trim().toLowerCase().replace(/[.,!?;:"'—]/g, "");
+          const splitVals = val.split(/\s+/).filter(Boolean);
+          userWordsByIndex[idx] = splitVals[0] || "";
+        });
+      } else {
+        const rawText = document.getElementById("fullDictationTextarea").value;
+        const inputWords = rawText
+          .trim()
+          .toLowerCase()
+          .replace(/[.,!?;:"'—]/g, "")
+          .split(/\s+/)
+          .filter(Boolean);
+
+        let cursor = 0;
+        userWordsByIndex = targetTokens.map((t, idx) => {
+          if (cursor >= inputWords.length) return "";
+          if (inputWords[cursor] === t.lower) return inputWords[cursor++];
+          if (cursor + 1 < inputWords.length && inputWords[cursor + 1] === t.lower) {
+            cursor++;
+            return inputWords[cursor++];
+          }
+          if (idx + 1 < targetTokens.length && inputWords[cursor] === targetTokens[idx + 1].lower) {
+            return "";
+          }
+          return inputWords[cursor++];
+        });
+      }
+
+      const diffContainer = document.getElementById("diffTokensContainer");
+      diffContainer.innerHTML = "";
+
+      let correctCount = 0;
+      const chunkMap = {};
+      q.chunks.forEach(c => c.word_indices.forEach(i => chunkMap[i] = c));
+
+      targetTokens.forEach((tok, idx) => {
+        const userWord = userWordsByIndex[idx] || "";
+        const isCorrect = userWord === tok.lower;
+        if (isCorrect) correctCount++;
+
+        const matchingChunk = chunkMap[idx];
+        const badge = document.createElement("div");
+
+        if (isCorrect) {
+          badge.className = "px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-semibold flex items-center space-x-1";
+          badge.innerHTML = `<span>${tok.raw}</span><span class="text-emerald-600 text-xs">✓</span>`;
+        } else {
+          badge.className = "chunk-highlight cursor-pointer px-3 py-1.5 rounded-lg bg-rose-50 border-2 border-rose-300 text-rose-900 text-sm font-bold flex flex-col items-center shadow-sm";
+          const userDisplay = userWord ? `入力: "${userWord}"` : "未入力";
+          badge.innerHTML = `
+            <div class="flex items-center space-x-1">
+              <span class="underline decoration-rose-500">${tok.raw}</span>
+              ${matchingChunk ? `<span class="text-[10px] px-1.5 py-0.2 rounded bg-rose-200 text-rose-800">目安:${matchingChunk.phonetic_actual}</span>` : ""}
+            </div>
+            <span class="text-[10px] text-rose-600 font-normal mt-0.5">${userDisplay}</span>
+          `;
+        }
+        diffContainer.appendChild(badge);
+      });
+
+      const accuracy = Math.round((correctCount / targetTokens.length) * 100);
+      const scoreBadge = document.getElementById("dictationScoreBadge");
+      scoreBadge.textContent = `一致率 ${accuracy}% (${correctCount}/${targetTokens.length}語)`;
+
+      if (accuracy === 100) {
+        is10xStable = true;
+        updateTelemetryUI();
+        setRecommendedStep(4, "ディクテーション100%達成！Step 4の『頭出しリテンション』へ進みましょう。");
+      } else {
+        setRecommendedStep(3, "下のカードで『原因候補』を確認した後、Step 3（純粋音読・暗唱）へ進みましょう。");
+      }
+
+      document.getElementById("unlockedTranslation").textContent = q.translation;
+      document.getElementById("diagnosisResultSection").classList.remove("hidden");
+
+      renderChunkDiagnosisCards(q, userWordsByIndex);
+    }
+
+    function renderChunkDiagnosisCards(question, userWordsByIndex) {
+      const container = document.getElementById("chunkDiagnosisContainer");
+      container.innerHTML = "";
+
+      question.chunks.forEach(chunk => {
+        const userChunkWords = chunk.word_indices.map(i => userWordsByIndex[i] || "");
+        const userPhrase = userChunkWords.filter(Boolean).join(" ");
+        const targetPhrase = chunk.tokens.join(" ");
+        const isChunkPerfect = chunk.word_indices.every((wIdx, i) => userWordsByIndex[wIdx] === chunk.tokens[i].toLowerCase());
+
+        const card = document.createElement("div");
+        card.id = `diagCard_${chunk.id}`;
+        card.className = isChunkPerfect
+          ? "rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3"
+          : "rounded-2xl border-2 border-indigo-200 bg-white p-5 shadow-sm space-y-4";
+
+        const phenomenaBadges = chunk.phenomena.map(pKey => {
+          const info = PHENOMENA_LABELS[pKey] || { name: pKey };
+          return `<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">候補: ${info.name}</span>`;
+        }).join(" ");
+
+        card.innerHTML = `
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold text-sm">${targetPhrase}</span>
+              <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">発音目安：「${chunk.phonetic_actual}」</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${phenomenaBadges}
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-600 flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200/80">
+            <div>
+              <span>あなたの入力：</span>
+              <strong class="${isChunkPerfect ? 'text-emerald-700' : 'text-rose-600'}">
+                ${userPhrase ? `"${userPhrase}"` : "（未入力）"}
+              </strong>
+            </div>
+            <button data-phrase="${targetPhrase}" class="play-chunk-btn text-indigo-600 hover:text-indigo-800 font-bold flex items-center space-x-1">
+              <span>🔊 この部分だけ聞く</span>
+            </button>
+          </div>
+
+          <div class="space-y-2">
+            <p class="text-xs font-bold text-slate-800">
+              🔍 どんなふうに聞こえたか選んでみよう：
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button data-chunk-id="${chunk.id}" data-choice="sound_change" class="survey-choice-btn text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition text-xs space-y-0.5">
+                <div class="font-bold text-slate-900">① 音が繋がった・弱くて消えた</div>
+                <div class="text-[11px] text-slate-500">→ Step 3 純粋音読・暗唱へ</div>
+              </button>
+              <button data-chunk-id="${chunk.id}" data-choice="vocab_lack" class="survey-choice-btn text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition text-xs space-y-0.5">
+                <div class="font-bold text-slate-900">② 音は聞こえたけれど、知らない単語だった</div>
+                <div class="text-[11px] text-slate-500">→ Step 1 チャンク・発音確認へ</div>
+              </button>
+              <button data-chunk-id="${chunk.id}" data-choice="misheard_other" class="survey-choice-btn text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition text-xs space-y-0.5">
+                <div class="font-bold text-slate-900">③ ちがう言葉に聞こえた</div>
+                <div class="text-[11px] text-slate-500">→ Step 3 重唱・純粋音読へ</div>
+              </button>
+              <button data-chunk-id="${chunk.id}" data-choice="attention_slip" class="survey-choice-btn text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/50 transition text-xs space-y-0.5">
+                <div class="font-bold text-slate-900">④ 長くて途中で忘れてしまった</div>
+                <div class="text-[11px] text-slate-500">→ Step 4 頭出しリテンションへ（または1文単位に絞る）</div>
+              </button>
+            </div>
+          </div>
+
+          <div id="prescriptionBox_${chunk.id}" class="hidden rounded-xl bg-indigo-950 text-white p-4 space-y-2.5 text-xs"></div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      container.querySelectorAll(".play-chunk-btn").forEach(btn => {
+        btn.addEventListener("click", () => speakText(btn.dataset.phrase, 0.85, true));
+      });
+
+      container.querySelectorAll(".survey-choice-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const chunkId = btn.dataset.chunkId;
+          const choice = btn.dataset.choice;
+          const chunk = question.chunks.find(c => c.id === chunkId);
+          const userPhrase = chunk.word_indices.map(i => userWordsByIndex[i] || "").filter(Boolean).join(" ");
+
+          btn.parentElement.querySelectorAll(".survey-choice-btn").forEach(b => {
+            b.classList.remove("border-indigo-600", "bg-indigo-50", "ring-2", "ring-indigo-500");
+          });
+          btn.classList.add("border-indigo-600", "bg-indigo-50", "ring-2", "ring-indigo-500");
+
+          handleSurveyDiagnosis(question, chunk, choice, userPhrase);
+        });
+      });
+    }
+
+    async function handleSurveyDiagnosis(question, chunk, choice, userPhrase) {
+      let nextStepTarget = 3;
+      let nextStepLabel = "Step 3: 純粋音読・暗唱";
+      let diagnosisTitle = "";
+      let actionAdvice = "";
+
+      if (choice === "vocab_lack") {
+        userStats.vocab = (userStats.vocab || 0) + 2;
+        nextStepTarget = 1;
+        nextStepLabel = "Step 1: チャンク・発音確認";
+        diagnosisTitle = `【診断結果：単語・チャンクの確認をしよう】`;
+        actionAdvice = `耳ではしっかり音を捉えられています！Step 1 に戻って「${chunk.tokens.join(" ")}」の発音と意味を確かめましょう。`;
+        setRecommendedStep(1, "音は捉えられています！Step 1で表現と発音を確認しましょう。");
+      } else if (choice === "attention_slip") {
+        userStats.attention = (userStats.attention || 0) + 2;
+        nextStepTarget = 4;
+        nextStepLabel = "Step 4: 頭出し・1秒後リフレイン";
+        diagnosisTitle = `【診断結果：チャンク保持（音の記憶）の練習をしよう】`;
+        actionAdvice = `Step 4 の「1秒後リフレイン＆頭出しトリガー法」で、短い塊ごとに1秒間頭の中に音を留める練習をしましょう。範囲が長すぎる場合は上部のバーで「① 1文ごと」に切り替えるのもおすすめです。`;
+        setRecommendedStep(4, "Step 4に進んで、チャンク1秒後リフレイン＆頭出しで音の記憶を広げましょう。");
+      } else {
+        chunk.phenomena.forEach(p => {
+          userStats[p] = (userStats[p] || 0) + 2;
+        });
+        nextStepTarget = 3;
+        nextStepLabel = "Step 3: 純粋音読・暗唱";
+        diagnosisTitle = `【診断結果：音の繋がりを口で覚えよう】`;
+        actionAdvice = `${chunk.hint} Step 3 でお手本と声を重ねてから「純粋な音読」と「暗唱」で自分の口に覚えさせると、パッと聞き取れるようになります。`;
+        setRecommendedStep(3, "Step 3（純粋音読・暗唱）で口を動かしてから、Step 4の頭出しリテンションへ進みましょう。");
+      }
+
+      renderWeaknessStats();
+
+      const box = document.getElementById(`prescriptionBox_${chunk.id}`);
+      box.classList.remove("hidden");
+      box.innerHTML = `
+        <div class="flex items-center justify-between border-b border-indigo-800 pb-2">
+          <span class="font-bold text-amber-300">${diagnosisTitle}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-800 text-indigo-200">診断完了</span>
+        </div>
+        <p class="leading-relaxed text-indigo-100">${actionAdvice}</p>
+        <div class="pt-2 flex flex-wrap items-center gap-2">
+          <button data-target-step="${nextStepTarget}" class="jump-recommended-step-btn px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs transition">
+            ➔ 推奨ステップ（${nextStepLabel}）へ移動する
+          </button>
+        </div>
+      `;
+
+      box.querySelector(".jump-recommended-step-btn").addEventListener("click", (e) => {
+        const target = parseInt(e.currentTarget.dataset.targetStep, 10);
+        switchStep(target);
+      });
+    }
+
+    /********************************************************************
+     * 7. テレメトリUI更新・推奨ステップ切り替え・弱点グラフ
+     ********************************************************************/
+    function updateTelemetryUI() {
+      document.getElementById("metricPlayCount").textContent = metrics.playCount;
+      document.getElementById("metricHintCount").textContent = metrics.hintCount;
+      document.getElementById("metricRetentionCount").textContent = metrics.retentionQueueCount;
+
+      const stabilityEl = document.getElementById("metricStabilityStatus");
+      const lockIcon = document.getElementById("speed12LockIcon");
+      if (is10xStable) {
+        stabilityEl.textContent = "安定 (1.2x推奨解放!)";
+        stabilityEl.className = "text-xs font-bold text-emerald-600 mt-1";
+        lockIcon.textContent = "⚡";
+      } else {
+        stabilityEl.textContent = "1.0x確認中";
+        stabilityEl.className = "text-xs font-bold text-amber-600 mt-1";
+        lockIcon.textContent = "🔒";
+      }
+    }
+
+    function setRecommendedStep(stepNum, reasonText) {
+      recommendedStep = stepNum;
+      [1, 2, 3, 4, 5].forEach(n => {
+        const badge = document.getElementById(`recBadge_${n}`);
+        if (badge) {
+          if (n === stepNum) badge.classList.remove("hidden");
+          else badge.classList.add("hidden");
+        }
+      });
+
+      const stepNames = {
+        5: "Step 5 (内容クイズ)",
+        1: "Step 1 (チャンク・発音)",
+        2: "Step 2 (穴埋め診断)",
+        3: "Step 3 (純粋音読・暗唱)",
+        4: "Step 4 (頭出し・1秒後リフレイン)"
+      };
+      document.getElementById("adaptiveRouteBadge").textContent = `推奨ステップ：${stepNames[stepNum]}`;
+      if (reasonText) {
+        document.getElementById("coachRecommendationText").innerHTML = reasonText;
+      }
+    }
+
+    function switchStep(stepNum) {
+      activeStep = stepNum;
+      document.querySelectorAll(".step-panel").forEach(p => p.classList.add("hidden"));
+      const targetPanel = document.getElementById(`panelStep${stepNum}`);
+      if (targetPanel) targetPanel.classList.remove("hidden");
+
+      document.querySelectorAll(".step-tab").forEach(tab => {
+        const s = parseInt(tab.dataset.step, 10);
+        if (s === stepNum) {
+          tab.className = "step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start bg-indigo-600 text-white shadow-sm";
+        } else {
+          tab.className = "step-tab py-2 px-2.5 rounded-xl text-xs font-bold transition flex flex-col items-start bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80";
+        }
+      });
+    }
+
+    function renderWeaknessStats() {
+      const container = document.getElementById("weaknessBarsContainer");
+      container.innerHTML = "";
+
+      const entries = Object.entries(userStats).sort((a, b) => b[1] - a[1]);
+      const total = entries.reduce((acc, [, count]) => acc + count, 0) || 1;
+
+      entries.forEach(([key, count]) => {
+        const meta = PHENOMENA_LABELS[key] || { name: key, desc: "", color: "bg-indigo-500" };
+        const pct = Math.round((count / total) * 100);
+
+        const row = document.createElement("div");
+        row.className = "space-y-1";
+        row.innerHTML = `
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-700" title="${meta.desc}">${meta.name}</span>
+            <span class="font-semibold text-slate-500">${pct}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="${meta.color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function updateSpeedButtonsUI() {
+      document.querySelectorAll(".speed-btn").forEach(b => {
+        const s = parseFloat(b.dataset.speed);
+        if (s === playbackSpeed) {
+          b.className = "speed-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-indigo-600 shadow-sm flex items-center space-x-1 transition";
+        } else {
+          b.className = "speed-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center space-x-1 transition";
+        }
+      });
+    }
+
+    /********************************************************************
+     * 8. イベントリスナー設定
+     ********************************************************************/
+    function setupEventListeners() {
+      // 範囲単位（1文ごと / 段落ごと / ページごと）の切替ボタン
+      document.querySelectorAll(".scope-unit-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          scopeUnit = btn.dataset.unit;
+          document.querySelectorAll(".scope-unit-btn").forEach(b => {
+            if (b.dataset.unit === scopeUnit) {
+              b.className = "scope-unit-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-sm transition";
+            } else {
+              b.className = "scope-unit-btn px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-200 hover:text-white transition";
+            }
+          });
+          populatePageAndRangeSelects(true);
+          rebuildActiveScopeQuestion();
+        });
+      });
+
+      // チャプター絞り込み
+      document.getElementById("chapterFilterSelect").addEventListener("change", (e) => {
+        selectedChapterFilter = e.target.value;
+        populatePageAndRangeSelects(true);
+        rebuildActiveScopeQuestion();
+      });
+
+      // ページ選択
+      document.getElementById("pageFilterSelect").addEventListener("change", (e) => {
+        currentPageIndex = parseInt(e.target.value, 10);
+        populatePageAndRangeSelects(true);
+        rebuildActiveScopeQuestion();
+      });
+
+      // 開始〜終了アイテムの範囲指定
+      document.getElementById("startItemSelect").addEventListener("change", (e) => {
+        startUnitIndex = parseInt(e.target.value, 10);
+        if (endUnitIndex < startUnitIndex) {
+          endUnitIndex = startUnitIndex;
+          document.getElementById("endItemSelect").value = endUnitIndex;
+        }
+        if (scopeUnit === "page") {
+          currentPageIndex = startUnitIndex;
+        }
+        updateScopeCounterBadge();
+        rebuildActiveScopeQuestion();
+      });
+
+      document.getElementById("endItemSelect").addEventListener("change", (e) => {
+        endUnitIndex = parseInt(e.target.value, 10);
+        if (endUnitIndex < startUnitIndex) {
+          startUnitIndex = endUnitIndex;
+          document.getElementById("startItemSelect").value = startUnitIndex;
+        }
+        updateScopeCounterBadge();
+        rebuildActiveScopeQuestion();
+      });
+
+      // 前へ / 次へ ボタン
+      document.getElementById("prevUnitBtn").addEventListener("click", () => stepScopeUnit(-1));
+      document.getElementById("nextUnitBtn").addEventListener("click", () => stepScopeUnit(1));
+
+      // 5ステップ切替タブ
+      document.querySelectorAll(".step-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          const stepNum = parseInt(tab.dataset.step, 10);
+          switchStep(stepNum);
+        });
+      });
+
+      document.getElementById("playMainBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        speakText(q.full_script, playbackSpeed, true);
+      });
+      document.getElementById("playTargetHeaderBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        speakText(q.target_sentence, playbackSpeed, true);
+      });
+      document.getElementById("stopAudioBtn").addEventListener("click", stopSpeech);
+
+      document.querySelectorAll(".speed-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const requestedSpeed = parseFloat(btn.dataset.speed);
+          const warnEl = document.getElementById("speedWarningText");
+          if (requestedSpeed === 0.8) {
+            metrics.hintCount++;
+            updateTelemetryUI();
+          }
+          if (requestedSpeed === 1.2 && !is10xStable) {
+            warnEl.classList.remove("hidden");
+          } else {
+            warnEl.classList.add("hidden");
+          }
+          playbackSpeed = requestedSpeed;
+          updateSpeedButtonsUI();
+        });
+      });
+
+      // Step 4: 3つのリフレイン・内言モード切替
+      const headBtn = document.getElementById("modeHeadStartBtn");
+      const ghostBtn = document.getElementById("modeGhostFadeBtn");
+      const unisonBtn = document.getElementById("modeUnisonFinishBtn");
+      const descBox = document.getElementById("refrainModeDescBox");
+
+      const updateStep4ModeTabs = (mode) => {
+        step4RefrainMode = mode;
+        const activeClass = "px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-sm transition";
+        const idleClass = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition";
+        headBtn.className = mode === "headstart" ? activeClass : idleClass;
+        ghostBtn.className = mode === "ghost" ? activeClass : idleClass;
+        unisonBtn.className = mode === "unison" ? activeClass : idleClass;
+
+        if (mode === "headstart") {
+          descBox.innerHTML = `
+            <strong>【⚡ ① 頭出しトリガー法（ヘッドスタート・リテンション）の仕組み】</strong><br>
+            ・<strong>Round 1 (フルエコー)</strong>：お手本チャンクの1秒後に、控えめな音量で<strong>チャンク全文のエコー</strong>が鳴ります。<br>
+            ・<strong>Round 2 (頭出しのみ！)</strong>：1秒後に<strong>最初の1〜2語だけ</strong>が鳴ってピタッと止まります！残りの言葉を自分の頭の中の声（Inner Speech）で最後まで自走させてください。<br>
+            ・<strong>Round 3 (完全内言)</strong>：1秒後に「ピッ」と合図だけ鳴り、<strong>無音のリテンション空間</strong>が作られます。
+          `;
+        } else if (mode === "ghost") {
+          descBox.innerHTML = `
+            <strong>【👻 ② だんだん消えるエコー法（ゴースト・リフレイン）の仕組み】</strong><br>
+            ・<strong>Round 1 (音量60%) ➔ Round 2 (音量22%のささやき) ➔ Round 3 (無音合図のみ)</strong> と、1秒後のリフレイン音量が段階的にフェードアウトします。<br>
+            ・補助輪が少しずつ消えていくため、無理なく自分の頭の中の声（Inner Speech）へとバトンタッチできます。
+          `;
+        } else {
+          descBox.innerHTML = `
+            <strong>【🔥 ③ 仕上げ：全文同時ユニゾン内言】</strong><br>
+            ・Step 3の「純粋音読・暗唱」と、上記①②の「頭出しリテンション」でチャンクのリズムが固まった後の<strong>最終仕上げモード</strong>です。<br>
+            ・お手本と<strong>タイムラグゼロ（完全同時）</strong>で頭の中の声をユニゾン発火させ、最後に選択範囲を通しで同時内言します。
+          `;
+        }
+        renderRefrainChunksGrid(false);
+      };
+
+      headBtn.addEventListener("click", () => updateStep4ModeTabs("headstart"));
+      ghostBtn.addEventListener("click", () => updateStep4ModeTabs("ghost"));
+      unisonBtn.addEventListener("click", () => updateStep4ModeTabs("unison"));
+
+      document.getElementById("start3RoundsRefrainBtn").addEventListener("click", () => {
+        runRefrainTrainingRounds([1, 2, 3]);
+      });
+
+      document.getElementById("stopRefrainBtn").addEventListener("click", () => {
+        stopSpeech();
+        document.getElementById("refrainStageStatus").textContent = "停止しました。いつでも再開できます。";
+      });
+
+      document.querySelectorAll(".single-round-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const r = parseInt(e.currentTarget.dataset.round, 10);
+          runRefrainTrainingRounds([r]);
+        });
+      });
+
+      // Step 5 Controls
+      document.getElementById("useHintStep5Btn").addEventListener("click", () => {
+        const hintBox = document.getElementById("step5HintBox");
+        if (hintBox.classList.contains("hidden")) {
+          hintBox.classList.remove("hidden");
+          metrics.hintCount++;
+          updateTelemetryUI();
+        }
+      });
+
+      document.getElementById("checkWorksheetBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        let correctWs = 0;
+        q.worksheet.items.forEach(item => {
+          const selected = document.querySelector(`input[name="ws_${item.id}"]:checked`);
+          const badge = document.getElementById(`wsBadge_${item.id}`);
+          if (selected && parseInt(selected.value, 10) === item.correctIndex) {
+            correctWs++;
+            badge.textContent = "✓ 正解";
+            badge.className = "text-xs font-bold text-emerald-600";
+          } else {
+            badge.textContent = "✕ 要確認";
+            badge.className = "text-xs font-bold text-rose-600";
+          }
+        });
+
+        const msg = document.getElementById("worksheetResultMsg");
+        if (correctWs === q.worksheet.items.length) {
+          setRecommendedStep(4, "クイズ全問正解！Step 4の『頭出し・1秒後リフレイン』で仕上げましょう。");
+          msg.innerHTML = `<span class="text-emerald-700 font-bold">全問正解！ Step 4（頭出しリテンション）へ進みましょう。</span>`;
+        } else {
+          setRecommendedStep(2, "Step 2 で選択範囲の聞こえ方をチェックしましょう。");
+          msg.innerHTML = `<span class="text-rose-700 font-bold">${correctWs}/${q.worksheet.items.length}問正解。Step 2 へ移動します。</span>`;
+          setTimeout(() => switchStep(2), 1000);
+        }
+      });
+
+      // Step 1 Controls
+      document.getElementById("step1ToStep3Btn").addEventListener("click", () => switchStep(3));
+      document.getElementById("step1ToStep2Btn").addEventListener("click", () => switchStep(2));
+
+      // Step 2 Controls
+      document.getElementById("playTargetBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        speakText(q.target_sentence, 1.0, true);
+      });
+      document.getElementById("hintSlowPlayBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        metrics.hintCount++;
+        updateTelemetryUI();
+        speakText(q.target_sentence, 0.8, true);
+      });
+
+      const clozeBtn = document.getElementById("modeClozeBtn");
+      const fullBtn = document.getElementById("modeFullBtn");
+      const clozeCont = document.getElementById("clozeInputContainer");
+      const fullCont = document.getElementById("fullInputContainer");
+
+      clozeBtn.addEventListener("click", () => {
+        dictationMode = "cloze";
+        clozeBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-indigo-600 shadow-sm transition";
+        fullBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+        clozeCont.classList.remove("hidden");
+        fullCont.classList.add("hidden");
+      });
+
+      fullBtn.addEventListener("click", () => {
+        dictationMode = "full";
+        fullBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-indigo-600 shadow-sm transition";
+        clozeBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+        fullCont.classList.remove("hidden");
+        clozeCont.classList.add("hidden");
+      });
+
+      document.getElementById("fillSampleErrorBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        if (dictationMode === "cloze") {
+          const inputs = document.querySelectorAll(".cloze-word-input");
+          inputs.forEach(inp => {
+            const wIdx = parseInt(inp.dataset.wordIndex, 10);
+            q.chunks.forEach(chunk => {
+              const pos = chunk.word_indices.indexOf(wIdx);
+              if (pos !== -1) inp.value = chunk.sample_wrong_input[pos] ?? "";
+            });
+          });
+        } else {
+          const tokens = tokenizeSentence(q.target_sentence).map(t => t.raw);
+          q.chunks.forEach(chunk => {
+            chunk.word_indices.forEach((wIdx, pos) => {
+              tokens[wIdx] = chunk.sample_wrong_input[pos] ?? "";
+            });
+          });
+          document.getElementById("fullDictationTextarea").value = tokens.filter(Boolean).join(" ");
+        }
+        gradeDictation();
+      });
+
+      document.getElementById("gradeDictationBtn").addEventListener("click", gradeDictation);
+
+      // Step 3 Controls
+      document.getElementById("toggleRecitationMaskBtn").addEventListener("click", (e) => {
+        isRecitationMasked = !isRecitationMasked;
+        const container = document.getElementById("slashScriptContainer");
+        if (isRecitationMasked) {
+          container.classList.add("recitation-masked");
+          e.currentTarget.textContent = "👁️ 暗唱モード中：英語を表示する (ON)";
+        } else {
+          container.classList.remove("recitation-masked");
+          e.currentTarget.textContent = "🙈 暗唱モード：英語を隠す (OFF)";
+        }
+      });
+
+      document.getElementById("overlap08Btn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        metrics.overlap08Count = Math.min(3, metrics.overlap08Count + 1);
+        document.getElementById("overlap08Count").textContent = `${metrics.overlap08Count}/3回`;
+        speakText(q.target_sentence, 0.8, true);
+      });
+
+      document.getElementById("overlap10Btn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        metrics.overlap10Count = Math.min(3, metrics.overlap10Count + 1);
+        document.getElementById("overlap10Count").textContent = `${metrics.overlap10Count}/3回`;
+        speakText(q.target_sentence, 1.0, true);
+      });
+
+      document.getElementById("pureReadingBtn").addEventListener("click", () => {
+        metrics.pureReadCount = Math.min(3, metrics.pureReadCount + 1);
+        document.getElementById("pureReadCountBadge").textContent = `${metrics.pureReadCount}/3回`;
+        runPureReadingPacer();
+      });
+
+      document.getElementById("reciteCheckBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        const container = document.getElementById("slashScriptContainer");
+        container.classList.add("recitation-masked");
+        isRecitationMasked = true;
+        document.getElementById("toggleRecitationMaskBtn").textContent = "👁️ 暗唱モード中：英語を表示する (ON)";
+        metrics.reciteCount = Math.min(3, metrics.reciteCount + 1);
+        document.getElementById("reciteCountBadge").textContent = `${metrics.reciteCount}/3回`;
+        speakText(q.target_sentence, 1.0, true);
+      });
+
+      document.getElementById("step3ToStep4Btn").addEventListener("click", () => switchStep(4));
+
+      // Step 4 Verification
+      document.getElementById("verifyMasteryYesBtn").addEventListener("click", () => {
+        is10xStable = true;
+        updateTelemetryUI();
+        document.getElementById("masteryFeedbackMsg").innerHTML = "🎉 <strong>頭出しリテンション達成！</strong> 上部の「次へ ▶」ボタンで次の文・段落へ進むか、1.2倍速モードをお試しください。";
+      });
+
+      document.getElementById("verifyMasteryNoBtn").addEventListener("click", () => {
+        is10xStable = false;
+        updateTelemetryUI();
+        document.getElementById("masteryFeedbackMsg").innerHTML = "💡 Step 3の「③ 純粋な音読」と「④ 暗唱」で自分の口がスムーズに動くようにしてから戻ると、頭出しの続きが自然に溢れ出てきます。";
+      });
+
+      // Next-Day Retention
+      document.getElementById("runNextDayTestBtn").addEventListener("click", () => {
+        const q = QUESTIONS_DATA[currentQuestionIndex];
+        speakText(q.target_sentence, 1.0, false);
+        document.getElementById("nextDayResultBox").classList.remove("hidden");
+      });
+
+      document.getElementById("nextDayPassBtn").addEventListener("click", () => {
+        metrics.retentionQueueCount = 0;
+        is10xStable = true;
+        updateTelemetryUI();
+        document.getElementById("nextDayResultBox").innerHTML = `<p class="text-xs font-bold text-emerald-800">✨ 再現クリア！運動神経と耳のつながりがしっかり定着しました。</p>`;
+      });
+
+      document.getElementById("nextDayFailBtn").addEventListener("click", () => switchStep(3));
+
+      document.getElementById("resetStatsBtn").addEventListener("click", () => {
+        userStats = { linking: 0, elision: 0, weak_form: 0, assimilation: 0, vocab: 0, attention: 0 };
+        renderWeaknessStats();
+      });
+    }
+  </script>
+</body>
+</html>
